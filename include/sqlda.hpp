@@ -1,5 +1,4 @@
 #pragma once
-#include "ibase.h"
 #include "sqlvar.hpp"
 #include "exception.hpp"
 
@@ -7,20 +6,8 @@
 #include <cstdlib>
 #include <vector>
 
-#include <iostream>
-
 namespace fb
 {
-
-template <class F, size_t... I>
-inline bool to_const(size_t value, F&& fn, std::index_sequence<I...>)
-{ return ((value == I && (fn(std::integral_constant<size_t, I>{}), true)) || ...); }
-
-template <size_t N, class F>
-inline bool to_const(size_t value, F&& fn)
-{ return to_const(value, fn, std::make_index_sequence<N>{}); }
-
-
 // XSQLDA is a host-language data structure that DSQL uses to transport
 // data to or from a database when processing a SQL statement string.
 // See https://docwiki.embarcadero.com/InterBase/2020/en/XSQLDA_Field_Descriptions_(Embedded_SQL_Guide)
@@ -73,6 +60,28 @@ struct sqlda
 
     // Allocate aligned space for incoming data
     void alloc_data();
+
+    template <class... Args>
+    std::tuple<Args...>& get(std::tuple<Args...>& tup) const
+    {
+        auto setter = [this]<size_t... I>(auto& t, std::index_sequence<I...>)
+        {
+            (std::visit(
+                [&t](auto val) { try_assign(std::get<I>(t), val); },
+                sqlvar(&_ptr->sqlvar[I]).get()), ...);
+        };
+        setter(tup, std::index_sequence_for<Args...>{});
+        return tup;
+    }
+
+    /*
+    template <template<class...> class T, class... Args>
+    std::enable_if_t<is_tuple_v<T<Args...>>, std::tuple<Args...>>
+    as_tuple() const
+//    std::tuple<Args...> get() const
+    {
+        return {};
+    }*/
 
     // Set input parameters.
     // Note! This creates a view to arguments and XSQLVARs

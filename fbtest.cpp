@@ -51,6 +51,24 @@ void print_result(const fb::query& q)
     };
 
     #if 1
+    //using tup_t = std::tuple<short, std::string_view, fb::timestamp_t>;
+    using tup_t = std::tuple<int, std::string_view, fb::timestamp_t>;
+    tup_t t;
+
+    for (auto& row : q) {
+        #if 0
+        t = row.as_tuple<tup_t>();
+        #else
+        auto& [cno, cname, ts] = row.get(t);
+
+        std::cout << "1: " << cno << std::endl;
+        std::cout << "2: " << cname << std::endl;
+        std::cout << "3: " << ts << std::endl;
+        std::cout << std::endl;
+        #endif
+    }
+    #else
+    #if 1
     #if 1
     for (auto& row : q)
     {
@@ -78,6 +96,7 @@ void print_result(const fb::query& q)
 
         //std::string t = ts.to_string();
     });
+    #endif
     #endif
 }
 

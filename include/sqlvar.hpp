@@ -1,5 +1,4 @@
 #pragma once
-#include "ibase.h"
 #include "types.hpp"
 #include "exception.hpp"
 

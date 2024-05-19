@@ -22,7 +22,7 @@ struct query
 
     // Run query
     template <class... Args>
-    void execute(const Args&... args);
+    query& execute(const Args&... args);
 
     iterator begin() const;
     iterator end() const;
@@ -93,7 +93,7 @@ struct query::iterator
 
     iterator() = default;
 
-    iterator(std::shared_ptr<query::context_t> ctx)
+    iterator(query::context_t* ctx)
     : _ctx(ctx)
     { }
 
@@ -107,7 +107,7 @@ struct query::iterator
     iterator& operator++()
     {
         if (!_ctx->fetch())
-            _ctx.reset();
+            _ctx = nullptr;
         return *this;
     }
 
@@ -125,12 +125,12 @@ struct query::iterator
     { return _ctx != rhs._ctx; };
 
 private:
-    std::shared_ptr<query::context_t> _ctx;
+    query::context_t* _ctx = nullptr;
 };
 
 
 query::iterator query::begin() const
-{ return _context->_is_data_available ? _context : end(); }
+{ return _context->_is_data_available ? _context.get() : end(); }
 
 
 query::iterator query::end() const
@@ -212,7 +212,7 @@ std::cout << "query::prepare()" << std::endl;
 
 // Run query
 template <class... Args>
-void query::execute(const Args&... args)
+query& query::execute(const Args&... args)
 {
     context_t* c = _context.get();
 
@@ -233,6 +233,8 @@ std::cout << "execute params:\n" << c->_params;
     // start to read from *begin()
     if (c->_fields.size())
         c->fetch();
+
+    return *this;
 }
 
 

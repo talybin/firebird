@@ -4,21 +4,10 @@
 //#include "firebird.hpp"
 #include <iostream>
 #include "firebird.hpp"
-#include <iomanip>
 
 //std::ostream& operator<<(std::ostream& os, struct tm& t) { return os; }
 //std::ostream& operator<<(std::ostream& os, std::chrono::microseconds& t) { return os; }
 
-#if 1
-std::ostream& operator<<(std::ostream& os, const fb::timestamp_t& t)
-{
-    return os << std::put_time(t.to_tm(), "%Y-%m-%d %X") <<
-        "." << std::setfill('0') << std::setw(3) << t.ms();
-}
-#endif
-
-std::ostream& operator<<(std::ostream& os, const fb::blob_id_t& t) { return os; }
-//std::ostream& operator<<(std::ostream& os, time_t& t) { return os; }
 
 //void print_params(fb::sqlda::ptr_t&& p)
 void print_params(XSQLDA* p)
@@ -51,21 +40,23 @@ void print_result(const fb::query& q)
     };
 
     #if 1
+    //using tup_t = std::tuple<std::string_view, std::string_view, fb::timestamp_t>;
     //using tup_t = std::tuple<short, std::string_view, fb::timestamp_t>;
-    using tup_t = std::tuple<int, std::string_view, fb::timestamp_t>;
+    //using tup_t = std::tuple<int, std::string_view, fb::timestamp_t>;
+    using tup_t = std::tuple<std::string, std::string_view, fb::timestamp_t>;
     tup_t t;
 
     for (auto& row : q) {
-        #if 0
-        t = row.as_tuple<tup_t>();
+        #if 1
+        auto [cno, cname, ts] = row.get<tup_t>();
         #else
-        auto& [cno, cname, ts] = row.get(t);
+        auto [cno, cname, ts] = row.get(t);
+        #endif
 
         std::cout << "1: " << cno << std::endl;
         std::cout << "2: " << cname << std::endl;
         std::cout << "3: " << ts << std::endl;
         std::cout << std::endl;
-        #endif
     }
     #else
     #if 1

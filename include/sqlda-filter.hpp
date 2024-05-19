@@ -61,18 +61,117 @@ struct sqlda
     // Allocate aligned space for incoming data
     void alloc_data();
 
+    #if 0
+    template <class... Args>
+    std::tuple<Args...>& get(std::tuple<Args...>& tup) const
+    {
+        auto setter = [this]<size_t... I>(auto& t, std::index_sequence<I...>)
+        {
+            (std::visit(
+                [&t]<class U>(U&& u) { try_assign(std::get<I>(t), std::forward<U>(u)); },
+                sqlvar(&_ptr->sqlvar[I]).get()), ...);
+        };
+        setter(tup, std::index_sequence_for<Args...>{});
+        return tup;
+    }
+    #else
+
+    /*
     template <class... Args, size_t... I>
     std::tuple<Args...>&
-    get(std::tuple<Args...>& t, std::index_sequence<I...>) const
+    get(std::tuple<Args...>& t, std::index_sequence<I...> = {}) const
     {
-        ((std::get<I>(t) = sqlvar(&_ptr->sqlvar[I]).get<Args>()), ...);
+        (std::visit(
+            [&t]<class U>(U&& u) { try_assign(std::get<I>(t), std::forward<U>(u)); },
+            sqlvar(&_ptr->sqlvar[I]).get()), ...);
         return t;
     }
 
     template <class... Args>
     std::tuple<Args...>& get(std::tuple<Args...>& tup) const
-    { return get(tup, std::index_sequence_for<Args...>{}); }
+    {
+        return get(tup, std::index_sequence_for<Args...>{});
+    }
+    */
 
+    template <class T, size_t... I, class R = std::tuple<std::tuple_element_t<I, T>...>>
+    std::enable_if_t<(is_tuple_v<T> && sizeof...(I) > 0 && !std::is_same_v<T, R>), R>
+    get(T&, std::index_sequence<I...> seq = {}) const
+    {
+        sqlvar::pointer vars[] = { &_ptr->sqlvar[I]... };
+        R tup;
+
+        auto set_values = [&]<size_t... N>(std::index_sequence<N...>)
+        {
+            (std::visit(
+                [&tup]<class U>(U&& u) { try_assign(std::get<N>(tup), std::forward<U>(u)); },
+                sqlvar(vars[N]).get()), ...);
+            //(try_assign(std::get<N>(t), sqlvar(vars[N]).get()), ...);
+        };
+
+        set_values(std::make_index_sequence<sizeof...(I)>{});
+        return tup;
+    }
+
+    template <class T, size_t... I, class R = std::tuple<std::tuple_element_t<I, T>...>>
+    std::enable_if_t<(is_tuple_v<T> && sizeof...(I) > 0 && std::is_same_v<T, R>), T&>
+    get(T& tup, std::index_sequence<I...> seq = {}) const
+    {
+        sqlvar::pointer vars[] = { &_ptr->sqlvar[I]... };
+        auto set_values = [&]<size_t... N>(std::index_sequence<N...>)
+        {
+            (std::visit(
+                [&tup]<class U>(U&& u) { try_assign(std::get<N>(tup), std::forward<U>(u)); },
+                sqlvar(vars[N]).get()), ...);
+            //(try_assign(std::get<N>(t), sqlvar(vars[N]).get()), ...);
+        };
+
+        set_values(std::make_index_sequence<sizeof...(I)>{});
+        return tup;
+    }
+
+    template <class T>
+    std::enable_if_t<is_tuple_v<T>, T&>
+    get(T& tup) const
+    { return get<T>(tup, std::make_index_sequence<std::tuple_size_v<T>>{}); }
+    #endif
+
+    template <class T, size_t... I, class R = std::tuple<std::tuple_element_t<I, T>...>>
+    std::enable_if_t<(is_tuple_v<T> && sizeof...(I) > 0), R>
+    get(std::index_sequence<I...> seq = {}) const
+    {
+        sqlvar::pointer vars[] = { &_ptr->sqlvar[I]... };
+        R tup;
+
+        auto set_values = [&]<size_t... N>(std::index_sequence<N...>)
+        {
+            (std::visit(
+                [&tup]<class U>(U&& u) { try_assign(std::get<N>(tup), std::forward<U>(u)); },
+                sqlvar(vars[N]).get()), ...);
+            //(try_assign(std::get<N>(t), sqlvar(vars[N]).get()), ...);
+        };
+
+        set_values(std::make_index_sequence<sizeof...(I)>{});
+        return tup;
+    }
+
+    template <class T>
+    std::enable_if_t<is_tuple_v<T>, T>
+    get() const
+    { return get<T>(std::make_index_sequence<std::tuple_size_v<T>>{}); }
+
+    /*
+    template <class T, size_t... I>
+    std::enable_if_t<is_tuple_v<T>, std::tuple<std::tuple_element_t<I, T>...>>
+    get(std::index_sequence<I...> seq = {}) const
+    {
+        T tup;
+        get(tup, seq);
+        return std::make_tuple(std::get<I>(tup)...);
+    }
+    */
+    #if 0
+    // Get tuple
     template <class T>
     std::enable_if_t<is_tuple_v<T>, T>
     get() const
@@ -80,6 +179,7 @@ struct sqlda
         T tup;
         return get(tup);
     }
+    #endif
 
     // Set input parameters.
     // Note! This creates a view to arguments and XSQLVARs

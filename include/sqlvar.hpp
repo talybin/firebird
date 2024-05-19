@@ -67,13 +67,22 @@ struct sqlvar
     // As variant
     field_t get() const;
 
+    // As type
+    template <class T>
+    T get() const
+    { return std::visit(type_converter<T>(), get()); }
+
     // Return by assigning
     template <class T>
     operator T() const
-    { return std::get<T>(get()); }
+    { return get<T>(); }
 
     // For debug purpose
     friend std::ostream& operator<<(std::ostream& os, const sqlvar&);
+
+    // Get column name
+    std::string_view name() const
+    { return std::string_view(_ptr->sqlname, _ptr->sqlname_length); }
 
     // This will show actual max column size
     // before set() destroys it

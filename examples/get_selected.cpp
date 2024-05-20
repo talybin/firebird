@@ -52,8 +52,8 @@ public:
         for (auto& row : q.execute())
         {
             auto [emp_no, last_name, hire_date] =
-                row.get<types, EMP_NO, LAST_NAME, HIRE_DATE>();
-                // or row.get<types, 0, 2, 4>()
+                row.select<types, EMP_NO, LAST_NAME, HIRE_DATE>();
+                // or row.select<types, 0, 2, 4>()
 
             std::cout
                 << "["
@@ -69,15 +69,6 @@ public:
                       << " is "
                       << std::get<SALARY>(values)
                       << std::endl;
-        }
-
-        // Or the same filtered columns, but indexes as argument
-        for (auto& row : q.execute())
-        {
-            using emp_fields = std::index_sequence<
-                EMP_NO, LAST_NAME, HIRE_DATE // or 0, 2, 4
-            >;
-            auto [emp_no, last_name, hire_date] = row.get<types>(emp_fields{});
         }
     }
 };

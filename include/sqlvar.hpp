@@ -70,7 +70,12 @@ struct sqlvar
     // As type
     template <class T>
     T get() const
-    { return std::visit(type_converter<T>(), get()); }
+    {
+        return std::visit(detail::overloaded {
+            type_converter<T>{}, [](...) -> T
+            { throw fb::exception("can't convert to type ") << detail::type_name<T>(); }
+        }, get());
+    }
 
     // Return by assigning
     template <class T>

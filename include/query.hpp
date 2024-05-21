@@ -20,6 +20,9 @@ struct query
     // Input parameters
     sqlda& params();
 
+    // Prepare query and buffer for receiving data
+    void prepare();
+
     // Run query
     template <class... Args>
     query& execute(const Args&... args);
@@ -76,9 +79,6 @@ private:
     };
 
     std::shared_ptr<context_t> _context;
-
-    // Prepare query and buffer for receiving data
-    void prepare();
 };
 
 

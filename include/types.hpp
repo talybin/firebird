@@ -16,14 +16,31 @@ constexpr const skip_t skip;
 struct timestamp_t : ISC_TIMESTAMP
 {
     // Convert timestamp_t to time_t.
-    // Where 40587 is GDS epoch start in days (year ~1859, time_t starts at 1970).
+    // Note, this will cut all dates below 1970-01-01, use to_tm() instead.
+    // 40587 is GDS epoch start in days (since 1858-11-17, time_t starts at 1970).
     time_t to_time_t() const
     { return std::max(int(timestamp_date) - 40587, 0) * 86400 + timestamp_time / 10'000; }
 
-    std::tm* to_tm() const {
-        time_t epoch = to_time_t();
-        return std::gmtime(&epoch);
+    std::tm* to_tm(std::tm* t) const {
+        isc_decode_timestamp(const_cast<timestamp_t*>(this), t);
+        return t;
     }
+
+    static timestamp_t from_time_t(time_t t) {
+        timestamp_t ret;
+        ret.timestamp_date = t / 86400 + 40587;
+        ret.timestamp_time = (t % 86400) * 10'000;
+        return ret;
+    }
+
+    static timestamp_t from_tm(std::tm* t) {
+        timestamp_t ret;
+        isc_encode_timestamp(t, &ret);
+        return ret;
+    }
+
+    static timestamp_t now()
+    { return from_time_t(time(0)); }
 
     size_t ms() const
     { return (timestamp_time / 10) % 1000; }

@@ -47,7 +47,7 @@ public:
             //"select first 3 emp_no, last_name, hire_date from employee");
             "select first 3 * from employee");
 
-        //using some_t = fb::filter<types, EMP_NO, LAST_NAME, HIRE_DATE>;
+        //using some_t = fb::select<types, EMP_NO, LAST_NAME, HIRE_DATE>;
 
         for (auto& row : q.execute())
         {

@@ -155,5 +155,16 @@ int main()
     catch (const std::exception& ex) {
         std::cout << "ERROR: " << ex.what() << "\n";
     }
+
+    fb::timestamp_t ts = { 0 };
+    std::cout << "fb timestamp starts with: " << ts << std::endl;
+    std::cout << "date should be 1989-02-06: " << fb::timestamp_t { 47563, 0 } << std::endl;
+
+    fb::timestamp_t now = fb::timestamp_t::now();
+    time_t cl = time(0);
+    std::cout << "timestamp now: " << now << std::endl;
+    //std::cout << "timestamp now should be: " << fb::timestamp_t::from_tm(std::localtime(&cl)) << std::endl;
+    std::cout << "timestamp now should be: " << fb::timestamp_t::from_tm(std::gmtime(&cl)) << std::endl;
+
     std::cout << "done" << std::endl;
 }

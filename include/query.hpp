@@ -114,9 +114,11 @@ struct query::iterator
     // Postfix increment (x++)
     // TODO: This is broken! How to return current
     //       value and then increment
-    //       MAYBE it has to do with last iterator
-    iterator operator++(int)
-    { return this->operator++(); }
+    iterator operator++(int) {
+        auto cur = _ctx;
+        this->operator++();
+        return cur;
+    }
 
     bool operator==(const iterator& rhs) const
     { return _ctx == rhs._ctx; };

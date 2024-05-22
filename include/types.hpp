@@ -10,7 +10,7 @@ namespace fb
 
 // Tag to skip parameter
 struct skip_t { };
-constexpr const skip_t skip;
+inline constexpr skip_t skip;
 
 // Methods to convert timestamp
 struct timestamp_t : ISC_TIMESTAMP
@@ -122,27 +122,6 @@ inline bool to_const(size_t value, F&& fn, std::index_sequence<I...>)
 template <size_t N, class F>
 inline bool to_const(size_t value, F&& fn)
 { return to_const(value, fn, std::make_index_sequence<N>{}); }
-
-/*
-// Assign if possible (used to traverse field_t)
-template <class T, class U>
-inline auto try_assign(T& t, U&& u) -> decltype(t = u, void())
-{ t = std::forward<U>(u); }
-
-// Fallback, do nothing
-inline void try_assign(...)
-{ throw fb::exception("can't assign, types differs too much"); }
-
-#if 0
-template <class T, class U>
-inline auto try_convert(U&& u) -> decltype(T() = u, T())
-{ return std::forward<U>(u); }
-
-// Fallback, do nothing
-inline void try_convert(...)
-{ throw fb::exception("can't assign, types differs too much"); }
-#endif
-*/
 
 // Detect a type list
 template <class>

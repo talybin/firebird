@@ -5,9 +5,6 @@
 #include <cstdlib>
 #include <stdexcept>
 
-#include <ostream>
-#include <map>
-
 namespace fb
 {
 
@@ -88,9 +85,6 @@ struct sqlvar
     template <class T>
     operator T() const
     { return get<T>(); }
-
-    // For debug purpose: output the sqlvar to an ostream
-    friend std::ostream& operator<<(std::ostream& os, const sqlvar&);
 
     // Get column name
     std::string_view name() const noexcept
@@ -209,44 +203,6 @@ field_t sqlvar::get() const
     default:
         throw fb::exception("type (") << dtype << ") not implemented";
     }
-}
-
-
-// Output the sqlvar for debugging purposes
-std::ostream& operator<<(std::ostream& os, const sqlvar& v)
-{
-    static std::map<int, std::string_view> types =
-    {
-        { SQL_TEXT, "SQL_TEXT" },
-        { SQL_VARYING, "SQL_VARYING" },
-        { SQL_SHORT, "SQL_SHORT" },
-        { SQL_LONG, "SQL_LONG" },
-        { SQL_INT64, "SQL_INT64" },
-        { SQL_FLOAT, "SQL_FLOAT" },
-        { SQL_DOUBLE, "SQL_DOUBLE" },
-        { SQL_TIMESTAMP, "SQL_TIMESTAMP" },
-        { SQL_TYPE_DATE, "SQL_TYPE_DATE" },
-        { SQL_TYPE_TIME, "SQL_TYPE_TIME" },
-        { SQL_BLOB, "SQL_BLOB" },
-        { SQL_ARRAY, "SQL_ARRAY" },
-    };
-
-    bool is_null = (v._ptr->sqltype & 1) &&
-        v._ptr->sqlind && (*v._ptr->sqlind < 0);
-    short dtype = v._ptr->sqltype & ~1;
-
-    auto it = types.find(dtype);
-    if (it != types.end())
-        os << types[dtype];
-    else
-        os << "unknown type (" << dtype << ")";
-
-    os << ": len: " << v._ptr->sqllen;
-    if (is_null)
-        os << ", null";
-    os << std::endl;
-
-    return os;
 }
 
 } // namespace fb

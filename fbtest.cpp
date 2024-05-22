@@ -1,9 +1,9 @@
 // fbtest.cpp : This file contains the 'main' function. Program execution begins and ends there.
 //
 
-//#include "firebird.hpp"
 #include <iostream>
 #include "firebird.hpp"
+#include "debug.hpp"
 
 //std::ostream& operator<<(std::ostream& os, struct tm& t) { return os; }
 //std::ostream& operator<<(std::ostream& os, std::chrono::microseconds& t) { return os; }

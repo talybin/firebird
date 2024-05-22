@@ -25,27 +25,27 @@ struct sqlda
     : _ptr(alloc(nr_cols))
     { }
 
-    operator pointer() const
+    operator pointer() const noexcept
     { return get(); }
 
-    pointer get() const
+    pointer get() const noexcept
     { return _ptr.get(); }
 
-    pointer operator->() const
+    pointer operator->() const noexcept
     { return get(); }
 
-    iterator begin() const;
-    iterator end() const;
+    iterator begin() const noexcept;
+    iterator end() const noexcept;
 
     // Number of used columns
-    size_t size() const
+    size_t size() const noexcept
     { return _ptr ? _ptr->sqld : 0; }
 
     // Number of columns allocated
-    size_t capacity() const
+    size_t capacity() const noexcept
     { return _ptr ? _ptr->sqln : 0; }
 
-    void resize(size_t nr_cols)
+    void resize(size_t nr_cols) noexcept
     { _ptr = alloc(nr_cols); }
 
     // Access by index (returning sqlvar)
@@ -57,7 +57,7 @@ struct sqlda
     }
 
     // Allocate aligned space for incoming data
-    void alloc_data();
+    void alloc_data() noexcept;
 
     // std::tuple<...> tup
     // get(tup, std::index_sequence<0, 2, 4>{})
@@ -103,7 +103,7 @@ struct sqlda
     set(const Args&... args);
 
     // Set without values, do nothing
-    void set() { }
+    void set() noexcept { }
 
     template <class F>
     void visit(F&& cb) const
@@ -113,15 +113,12 @@ struct sqlda
         });
     }
 
-    // For debug purpose
-    friend std::ostream& operator<<(std::ostream& os, const sqlda&);
-
 private:
     ptr_t _ptr;
     data_buffer_t _data_buffer;
 
     // Allocate buffer enough to hold given number of columns
-    static ptr_t alloc(size_t nr_cols)
+    static ptr_t alloc(size_t nr_cols) noexcept
     {
         pointer ptr = nullptr;
         if (nr_cols) {
@@ -157,42 +154,42 @@ struct sqlda::iterator
     : _var(var)
     { }
 
-    reference operator*()
+    reference operator*() noexcept
     { return _var; }
 
-    pointer operator->()
+    pointer operator->() noexcept
     { return &_var; }
 
     // Prefix increment (++x)
-    iterator& operator++() {
+    iterator& operator++() noexcept {
         _var = value_type(_var.handle() + 1);
         return *this;
     }
 
     // Postfix increment (x++)
-    iterator operator++(int) {
+    iterator operator++(int) noexcept {
         iterator cur(_var.handle());
         this->operator++();
         return cur;
     }
 
     // Prefix decrement (--x)
-    iterator& operator--() {
+    iterator& operator--() noexcept {
         _var = value_type(_var.handle() - 1);
         return *this;
     }
 
     // Postfix decrement (x--)
-    iterator operator--(int) {
+    iterator operator--(int) noexcept {
         iterator cur(_var.handle());
         this->operator--();
         return cur;
     }
 
-    bool operator==(const iterator& rhs) const
+    bool operator==(const iterator& rhs) const noexcept
     { return _var.handle() == rhs._var.handle(); };
 
-    bool operator!=(const iterator& rhs) const
+    bool operator!=(const iterator& rhs) const noexcept
     { return _var.handle() != rhs._var.handle(); };
 
 private:
@@ -200,11 +197,11 @@ private:
 };
 
 
-sqlda::iterator sqlda::begin() const
+sqlda::iterator sqlda::begin() const noexcept
 { return _ptr ? _ptr->sqlvar : nullptr; }
 
 
-sqlda::iterator sqlda::end() const
+sqlda::iterator sqlda::end() const noexcept
 { return _ptr ? &_ptr->sqlvar[std::min(size(), capacity())] : nullptr; }
 
 
@@ -226,7 +223,7 @@ sqlda::set(const Args&... args)
 }
 
 
-void sqlda::alloc_data()
+void sqlda::alloc_data() noexcept
 {
     // Calculate data size and offsets
     size_t offset = 0;
@@ -259,27 +256,6 @@ void sqlda::alloc_data()
         p->sqlind = (short*)(buf + (size_t)p->sqlind);
     }
 }
-
-
-std::ostream& operator<<(std::ostream& os, const sqlda& v)
-{
-    if (v._ptr) {
-        os << "sqln (cols allocated): " << v._ptr->sqln << std::endl;
-        os << "sqld (cols used): " << v._ptr->sqld << std::endl;
-
-        size_t cnt = 0;
-        for (auto it = v.begin(); it != v.end(); ++it, ++cnt) {
-            os << "--- sqlvar: " << cnt << " ---" << std::endl;
-            os << *it;
-        }
-    }
-    else
-        os << "sqlda: nullptr" << std::endl;
-
-    os << "------------------------------" << std::endl;
-    return os;
-}
-
 
 } // namespace fb
 

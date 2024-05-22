@@ -45,17 +45,17 @@ struct database
     void connect();
 
     // Disconnect from database
-    void disconnect();
+    void disconnect() noexcept;
 
     // Default transaction used for simple queries. Starts on connect.
-    transaction& default_transaction();
+    transaction& default_transaction() noexcept;
 
     // Methods of default transaction
     void commit();
     void rollback();
 
     // Raw handle
-    isc_db_handle* handle();
+    isc_db_handle* handle() noexcept;
 
 private:
     struct context_t;
@@ -63,133 +63,5 @@ private:
     std::shared_ptr<transaction> _def_trans;
 };
 
-
-struct transaction
-{
-    transaction(database& db)
-    : _context(std::make_shared<context_t>(db))
-    { }
-
-    void start()
-    {
-        context_t* c = _context.get();
-        if (!c->_handle)
-            invoke_except(isc_start_transaction, &c->_handle, 1, c->_db.handle(), 0, nullptr);
-    }
-
-    void commit()
-    { invoke_except(isc_commit_transaction, &_context->_handle); }
-
-    void rollback()
-    { invoke_except(isc_rollback_transaction, &_context->_handle); }
-
-    isc_tr_handle* handle()
-    { return &_context->_handle; }
-
-    database db()
-    { return _context->_db; }
-
-private:
-    struct context_t
-    {
-        context_t(database& db)
-        : _db(db)
-        { }
-
-        isc_tr_handle _handle = 0;
-        database _db;
-    };
-
-    std::shared_ptr<context_t> _context;
-};
-
-
-// database methods
-
-// https://docwiki.embarcadero.com/InterBase/2020/en/DPB_Parameters
-struct database::params
-{
-    params()
-    { _dpb.reserve(256); }
-
-    // Name is isc_dpb_ constant
-    void add(int name)
-    { _dpb.push_back(name); }
-
-    // Add string parameter
-    void add(int name, std::string_view value)
-    {
-        add(name);
-        _dpb.push_back(value.size());
-        std::copy(value.begin(), value.end(), std::back_inserter(_dpb));
-    }
-
-    std::vector<char> _dpb;
-};
-
-
-struct database::context_t
-{
-    //context_t(database& parent, std::string_view path)
-    context_t(std::string_view path)
-    : _path(path)
-    { }
-
-    // Disconnect here since it is shared context
-    ~context_t()
-    { disconnect(); }
-
-    // isc_detach_database will set _handle to 0 on success
-    void disconnect()
-    { invoke_noexcept(isc_detach_database, &_handle); }
-
-    params _params;
-    std::string _path;
-    isc_db_handle _handle = 0;
-};
-
-
-database::database(
-    std::string_view path, std::string_view user, std::string_view passwd)
-: _context(std::make_shared<context_t>(path))
-{
-    _def_trans = std::make_shared<transaction>(*this);
-
-    params& p = _context->_params;
-    // Fill database parameter buffer
-    p.add(isc_dpb_version1);
-    p.add(isc_dpb_user_name, user);
-    p.add(isc_dpb_password, passwd);
-}
-
-
-void database::connect()
-{
-    context_t* c = _context.get();
-    auto& dpb = c->_params._dpb;
-
-    invoke_except(isc_attach_database,
-        0, c->_path.c_str(), &c->_handle, dpb.size(), dpb.data());
-}
-
-
-void database::disconnect()
-{ _context->disconnect(); }
-
-
-transaction& database::default_transaction()
-{ return *_def_trans.get(); }
-
-
-void database::commit()
-{ _def_trans->commit(); }
-
-
-void database::rollback()
-{ _def_trans->rollback(); }
-
-
-isc_db_handle* database::handle()
-{ return &_context->_handle; }
-
 } // namespace fb
+

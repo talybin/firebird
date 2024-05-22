@@ -27,11 +27,11 @@ struct query
     template <class... Args>
     query& execute(const Args&... args);
 
-    iterator begin() const;
-    iterator end() const;
+    iterator begin() const noexcept;
+    iterator end() const noexcept;
 
     // Get column names
-    std::vector<std::string_view> column_names() const;
+    std::vector<std::string_view> column_names() const noexcept;
 
     // Get row values
     template <class F>
@@ -56,11 +56,11 @@ private:
         ~context_t()
         { close(DSQL_drop); }
 
-        void close(uint16_t op = DSQL_close)
+        void close(uint16_t op = DSQL_close) noexcept
         { invoke_noexcept(isc_dsql_free_statement, &_handle, op); }
 
         // Fetch next row
-        bool fetch()
+        bool fetch() noexcept
         {
             _is_data_available =
                 invoke_noexcept(isc_dsql_fetch, &_handle, SQL_DIALECT_V6, _fields) == 0;
@@ -97,14 +97,14 @@ struct query::iterator
     : _ctx(ctx)
     { }
 
-    reference operator*() const
+    reference operator*() const noexcept
     { return _ctx->_fields; }
 
-    pointer operator->() const
+    pointer operator->() const noexcept
     { return &_ctx->_fields; }
 
     // Prefix increment (++x)
-    iterator& operator++()
+    iterator& operator++() noexcept
     {
         if (!_ctx->fetch())
             _ctx = nullptr;
@@ -114,16 +114,16 @@ struct query::iterator
     // Postfix increment (x++)
     // TODO: This is broken! How to return current
     //       value and then increment
-    iterator operator++(int) {
+    iterator operator++(int) noexcept {
         auto cur = _ctx;
         this->operator++();
         return cur;
     }
 
-    bool operator==(const iterator& rhs) const
+    bool operator==(const iterator& rhs) const noexcept
     { return _ctx == rhs._ctx; };
 
-    bool operator!=(const iterator& rhs) const
+    bool operator!=(const iterator& rhs) const noexcept
     { return _ctx != rhs._ctx; };
 
 private:
@@ -131,11 +131,11 @@ private:
 };
 
 
-query::iterator query::begin() const
+query::iterator query::begin() const noexcept
 { return _context->_is_data_available ? _context.get() : end(); }
 
 
-query::iterator query::end() const
+query::iterator query::end() const noexcept
 { return {}; }
 
 
@@ -154,12 +154,10 @@ sqlda& query::params()
         // Prepare input parameters
         invoke_except(isc_dsql_describe_bind, &c->_handle, SQL_DIALECT_V6, c->_params);
         if (c->_params.capacity() < c->_params.size()) {
-std::cout << "increasing params:\n" << c->_params;
             c->_params.resize(c->_params.size());
             // Reread prepared description
             invoke_except(isc_dsql_describe_bind, &c->_handle, SQL_DIALECT_V6, c->_params);
         }
-std::cout << "required params:\n" << c->_params;
     }
     return c->_params;
 }
@@ -193,8 +191,6 @@ void query::prepare()
     if (c->_fields.size())
         c->_fields.alloc_data();
 
-    std::cout << "out fields:\n" << c->_fields;
-
     c->_is_prepared = true;
 }
 
@@ -211,7 +207,6 @@ query& query::execute(const Args&... args)
 
     // Apply input parameters (if any)
     c->_params.set(args...);
-std::cout << "execute params:\n" << c->_params;
 
     // Execute
     invoke_except(isc_dsql_execute,
@@ -228,7 +223,7 @@ std::cout << "execute params:\n" << c->_params;
 
 
 // Get column names
-std::vector<std::string_view> query::column_names() const
+std::vector<std::string_view> query::column_names() const noexcept
 {
     std::vector<std::string_view> view;
     view.reserve(_context->_fields.size());
@@ -239,3 +234,4 @@ std::vector<std::string_view> query::column_names() const
 }
 
 } // namespace fb
+

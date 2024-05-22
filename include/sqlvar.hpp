@@ -64,6 +64,13 @@ struct sqlvar
 
     // Get methods
 
+    // As XSQLVAR
+    const pointer handle() const
+    { return _ptr; }
+
+    pointer handle()
+    { return _ptr; }
+
     // As variant
     field_t get() const;
 

@@ -13,9 +13,10 @@ namespace fb
 // See https://docwiki.embarcadero.com/InterBase/2020/en/XSQLDA_Field_Descriptions_(Embedded_SQL_Guide)
 struct sqlda
 {
+    struct iterator;
+
     using type = XSQLDA;
     using pointer = std::add_pointer_t<type>;
-    using iterator = std::add_pointer_t<sqlvar::type>;
 
     using ptr_t = std::unique_ptr<type, decltype(&free)>;
     using data_buffer_t = std::vector<char>;
@@ -33,11 +34,8 @@ struct sqlda
     pointer operator->() const
     { return get(); }
 
-    iterator begin() const
-    { return _ptr ? _ptr->sqlvar : nullptr; }
-
-    iterator end() const
-    { return _ptr ? &_ptr->sqlvar[std::min(size(), capacity())] : nullptr; }
+    iterator begin() const;
+    iterator end() const;
 
     // Number of used columns
     size_t size() const
@@ -102,17 +100,7 @@ struct sqlda
     //       are valid as long as args do not expire.
     template <class... Args>
     std::enable_if_t<(sizeof...(Args) > 0)>
-    set(const Args&... args)
-    {
-        constexpr size_t cnt = sizeof...(Args);
-        if (size() != cnt)
-            throw fb::exception(
-                "set: wrong number of parameters (should be ")
-                << size() << ", called with " << cnt << ")";
-
-        auto it = begin();
-        ((sqlvar(it).set(args), ++it), ...);
-    }
+    set(const Args&... args);
 
     // Set without values, do nothing
     void set() { }
@@ -159,23 +147,103 @@ private:
 };
 
 
+struct sqlda::iterator
+{
+    using value_type = sqlvar;
+    using pointer = value_type*;
+    using reference = value_type&;
+
+    iterator(value_type::pointer var)
+    : _var(var)
+    { }
+
+    reference operator*()
+    { return _var; }
+
+    pointer operator->()
+    { return &_var; }
+
+    // Prefix increment (++x)
+    iterator& operator++() {
+        _var = value_type(_var.handle() + 1);
+        return *this;
+    }
+
+    // Postfix increment (x++)
+    iterator operator++(int) {
+        iterator cur(_var.handle());
+        this->operator++();
+        return cur;
+    }
+
+    // Prefix decrement (--x)
+    iterator& operator--() {
+        _var = value_type(_var.handle() - 1);
+        return *this;
+    }
+
+    // Postfix decrement (x--)
+    iterator operator--(int) {
+        iterator cur(_var.handle());
+        this->operator--();
+        return cur;
+    }
+
+    bool operator==(const iterator& rhs) const
+    { return _var.handle() == rhs._var.handle(); };
+
+    bool operator!=(const iterator& rhs) const
+    { return _var.handle() != rhs._var.handle(); };
+
+private:
+    value_type _var;
+};
+
+
+sqlda::iterator sqlda::begin() const
+{ return _ptr ? _ptr->sqlvar : nullptr; }
+
+
+sqlda::iterator sqlda::end() const
+{ return _ptr ? &_ptr->sqlvar[std::min(size(), capacity())] : nullptr; }
+
+
+// Set input parameters.
+// Note! This creates a view to arguments and XSQLVARs
+//       are valid as long as args do not expire.
+template <class... Args>
+std::enable_if_t<(sizeof...(Args) > 0)>
+sqlda::set(const Args&... args)
+{
+    constexpr size_t cnt = sizeof...(Args);
+    if (size() != cnt)
+        throw fb::exception(
+            "set: wrong number of parameters (should be ")
+            << size() << ", called with " << cnt << ")";
+
+    auto it = begin();
+    ((it->set(args), ++it), ...);
+}
+
+
 void sqlda::alloc_data()
 {
     // Calculate data size and offsets
     size_t offset = 0;
     for (auto it = begin(); it != end(); ++it)
     {
-        short dtype = it->sqltype & ~1;
-        size_t size = it->sqllen;
+        auto p = it->handle();
+        size_t len = p->sqllen;
+        short dtype = p->sqltype & ~1;
 
         if (dtype == SQL_VARYING)
-            size += sizeof(short);
+            len += sizeof(short);
 
-        it->sqldata = (char*)offset;
+        p->sqldata = (char*)offset;
         // Align size to sizeof(short)
-        offset += (size + 1) & ~1;
+        offset += (len + 1) & ~1;
 
-        it->sqlind = (short*)offset;
+        p->sqlind = (short*)offset;
         offset += sizeof(short);
     }
 
@@ -184,9 +252,11 @@ void sqlda::alloc_data()
 
     // Apply offsets to new storage
     char* buf = _data_buffer.data();
-    for (auto it = begin(); it != end(); ++it) {
-        it->sqldata = buf + (size_t)it->sqldata;
-        it->sqlind = (short*)(buf + (size_t)it->sqlind);
+    for (auto it = begin(); it != end(); ++it)
+    {
+        auto p = it->handle();
+        p->sqldata = buf + (size_t)p->sqldata;
+        p->sqlind = (short*)(buf + (size_t)p->sqlind);
     }
 }
 
@@ -200,7 +270,7 @@ std::ostream& operator<<(std::ostream& os, const sqlda& v)
         size_t cnt = 0;
         for (auto it = v.begin(); it != v.end(); ++it, ++cnt) {
             os << "--- sqlvar: " << cnt << " ---" << std::endl;
-            os << sqlvar(it);
+            os << *it;
         }
     }
     else

@@ -173,7 +173,6 @@ void query::prepare()
     // Run only once
     if (c->_is_prepared)
         return;
-std::cout << "query::prepare()" << std::endl;
 
     // Start transaction if not already
     c->_trans.start();
@@ -183,18 +182,6 @@ std::cout << "query::prepare()" << std::endl;
     // Prepare query
     invoke_except(isc_dsql_prepare,
         c->_trans.handle(), &c->_handle, 0, c->_sql.c_str(), SQL_DIALECT_V6, c->_fields);
-
-    #if 0 // Not needed yet
-    // Prepare input parameters
-    invoke_except(isc_dsql_describe_bind, &c->_handle, SQL_DIALECT_V6, c->_params);
-    if (c->_params.capacity() < c->_params.size()) {
-        c->_params.resize(c->_params.size());
-        // Reread prepared description
-        invoke_except(isc_dsql_describe_bind, &c->_handle, SQL_DIALECT_V6, c->_params);
-    }
-
-    std::cout << "required params:\n" << c->_params;
-    #endif
 
     // Prepare output fields
     if (c->_fields.capacity() < c->_fields.size()) {
@@ -247,7 +234,7 @@ std::vector<std::string_view> query::column_names() const
     view.reserve(_context->_fields.size());
 
     for (auto& var : _context->_fields)
-        view.emplace_back(var.sqlname, var.sqlname_length);
+        view.push_back(var.name());
     return view;
 }
 

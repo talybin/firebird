@@ -57,6 +57,11 @@ void print_result(const fb::query& q)
         std::cout << "2: " << cname << std::endl;
         std::cout << "3: " << ts << std::endl;
         std::cout << std::endl;
+
+        // TODO Test pointers
+        using tup_ptr_t = std::tuple<int*, std::string_view, fb::timestamp_t>;
+        auto [no_ptr, name_ptr, ts_ptr] = row.get<tup_ptr_t>();
+        std::cout << "ptr 1: " << *no_ptr << std::endl;
     }
     #else
     #if 1

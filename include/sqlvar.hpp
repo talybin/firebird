@@ -98,6 +98,9 @@ struct sqlvar
     size_t size() const noexcept
     { return _ptr->sqllen; }
 
+    bool is_null() const noexcept
+    { return (_ptr->sqltype & 1) && (*_ptr->sqlind < 0); }
+
 private:
     // Internal pointer to XSQLVAR
     pointer _ptr;
@@ -117,8 +120,7 @@ private:
 // Get value variant (field_t) based on the type of SQL data
 field_t sqlvar::get() const
 {
-    bool is_null = (_ptr->sqltype & 1) && (*_ptr->sqlind < 0);
-    if (is_null)
+    if (is_null())
         return field_t(std::in_place_type<std::nullptr_t>, nullptr);
 
     // Get data type without null flag

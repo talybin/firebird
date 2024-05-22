@@ -22,59 +22,59 @@ struct sqlvar
 
     // Set methods
 
-    // TODO make enum of stype
-    void set(int stype, const void* sdata, size_t slen)
+    // Generic set method for sqltype, data, and length
+    void set(int stype, const void* sdata, size_t slen) noexcept
     {
         _ptr->sqltype = stype;
-        _ptr->sqldata = (char*)sdata;
+        _ptr->sqldata = const_cast<char*>(reinterpret_cast<const char*>(sdata));
         _ptr->sqllen = slen;
     }
 
-    // Skip method
-    void set(skip_t) { }
+    // Skip method, does nothing
+    void set(skip_t) noexcept { }
 
-    void set(const float& val)
+    void set(const float& val) noexcept
     { set(SQL_FLOAT, &val, sizeof(float)); }
 
-    void set(const double& val)
+    void set(const double& val) noexcept
     { set(SQL_DOUBLE, &val, sizeof(double)); }
 
-    void set(const int16_t& val)
+    void set(const int16_t& val) noexcept
     { set(SQL_SHORT, &val, 2); }
 
-    void set(const int32_t& val)
+    void set(const int32_t& val) noexcept
     { set(SQL_LONG, &val, 4); }
 
-    void set(const int64_t& val)
+    void set(const int64_t& val) noexcept
     { set(SQL_INT64, &val, 8); }
 
-    void set(std::string_view val)
+    void set(std::string_view val) noexcept
     { set(SQL_TEXT, val.data(), val.size()); }
 
-    void set(const timestamp_t& val)
+    void set(const timestamp_t& val) noexcept
     { set(SQL_TIMESTAMP, &val, sizeof(timestamp_t)); }
 
-    void set(std::nullptr_t)
+    void set(std::nullptr_t) noexcept
     { _ptr->sqltype = SQL_NULL; }
 
     // Set by assigning
     template <class T>
-    auto operator=(const T& val) -> decltype(set(val), *this)
+    auto operator=(const T& val) noexcept -> decltype(set(val), *this)
     { return (set(val), *this); }
 
     // Get methods
 
-    // As XSQLVAR
-    const pointer handle() const
+    // Return the internal pointer to XSQLVAR
+    const pointer handle() const noexcept
     { return _ptr; }
 
-    pointer handle()
+    pointer handle() noexcept
     { return _ptr; }
 
-    // As variant
+    // Get the value as a variant (field_t)
     field_t get() const;
 
-    // As type
+    // Get the value as a specific type
     template <class T>
     T get() const
     {
@@ -89,27 +89,27 @@ struct sqlvar
     operator T() const
     { return get<T>(); }
 
-    // For debug purpose
+    // For debug purpose: output the sqlvar to an ostream
     friend std::ostream& operator<<(std::ostream& os, const sqlvar&);
 
     // Get column name
-    std::string_view name() const
+    std::string_view name() const noexcept
     { return std::string_view(_ptr->sqlname, _ptr->sqlname_length); }
 
     // Get table name
-    std::string_view table() const
+    std::string_view table() const noexcept
     { return std::string_view(_ptr->relname, _ptr->relname_length); }
 
-    // This will show actual max column size
-    // before set() destroys it
-    size_t size() const
+    // This will show actual max column size before set() destroys it
+    size_t size() const noexcept
     { return _ptr->sqllen; }
 
 private:
+    // Internal pointer to XSQLVAR
     pointer _ptr;
 
-    // Get scaled value of base 10
-    size_t scale_tens() const
+    // Helper method to get scaled value of base 10
+    size_t scale_tens() const noexcept
     {
         int scale = std::abs(_ptr->sqlscale);
         int tens = 1;
@@ -120,13 +120,14 @@ private:
 };
 
 
-// Get value variant
+// Get value variant (field_t) based on the type of SQL data
 field_t sqlvar::get() const
 {
     bool is_null = (_ptr->sqltype & 1) && (*_ptr->sqlind < 0);
     if (is_null)
         return field_t(std::in_place_type<std::nullptr_t>, nullptr);
 
+    // Get data type without null flag
     short dtype = _ptr->sqltype & ~1;
     char* data = _ptr->sqldata;
 
@@ -139,7 +140,7 @@ field_t sqlvar::get() const
     {
         // While sqllen set to max column size, vary_length
         // is actual length of this field
-        auto pv = (PARAMVARY*)data;
+        auto pv = reinterpret_cast<PARAMVARY*>(data);
         return field_t(
             std::in_place_type<std::string_view>,
             (const char*)pv->vary_string, pv->vary_length);
@@ -147,7 +148,7 @@ field_t sqlvar::get() const
 
     case SQL_SHORT:
     {
-        int16_t val = *(int16_t*)data;
+        int16_t val = *reinterpret_cast<int16_t*>(data);
         if (_ptr->sqlscale < 0)
             return field_t(std::in_place_type<float>, float(val) / scale_tens());
         else if (_ptr->sqlscale)
@@ -158,7 +159,7 @@ field_t sqlvar::get() const
 
     case SQL_LONG:
     {
-        int32_t val = *(int32_t*)data;
+        int32_t val = *reinterpret_cast<int32_t*>(data);
         if (_ptr->sqlscale < 0)
             return field_t(std::in_place_type<float>, float(val) / scale_tens());
         else if (_ptr->sqlscale)
@@ -169,7 +170,7 @@ field_t sqlvar::get() const
 
     case SQL_INT64:
     {
-        int64_t val = *(int64_t*)data;
+        int64_t val = *reinterpret_cast<int64_t*>(data);
         if (_ptr->sqlscale < 0)
             return field_t(std::in_place_type<double>, double(val) / scale_tens());
         else if (_ptr->sqlscale)
@@ -179,37 +180,39 @@ field_t sqlvar::get() const
     }
 
     case SQL_FLOAT:
-        return field_t(std::in_place_type<float>, *(float*)data);
+        return field_t(std::in_place_type<float>, *reinterpret_cast<float*>(data));
 
     case SQL_DOUBLE:
-        return field_t(std::in_place_type<double>, *(double*)data);
+        return field_t(std::in_place_type<double>, *reinterpret_cast<double*>(data));
 
     case SQL_TIMESTAMP:
-        return field_t(std::in_place_type<timestamp_t>, *(timestamp_t*)data);
+        return field_t(std::in_place_type<timestamp_t>, *reinterpret_cast<timestamp_t*>(data));
 
     case SQL_TYPE_DATE:
     {
         timestamp_t t;
-        t.timestamp_date = *(ISC_DATE*)data;
+        t.timestamp_date = *reinterpret_cast<ISC_DATE*>(data);
         return field_t(std::in_place_type<timestamp_t>, t);
     }
 
     case SQL_TYPE_TIME:
     {
         timestamp_t t;
-        t.timestamp_time = *(ISC_TIME*)data;
+        t.timestamp_time = *reinterpret_cast<ISC_TIME*>(data);
         return field_t(std::in_place_type<timestamp_t>, t);
     }
 
     case SQL_BLOB:
     case SQL_ARRAY:
-        return field_t(std::in_place_type<blob_id_t>, *(ISC_QUAD*)data);
+        return field_t(std::in_place_type<blob_id_t>, *reinterpret_cast<ISC_QUAD*>(data));
 
     default:
         throw fb::exception("type (") << dtype << ") not implemented";
     }
 }
 
+
+// Output the sqlvar for debugging purposes
 std::ostream& operator<<(std::ostream& os, const sqlvar& v)
 {
     static std::map<int, std::string_view> types =

@@ -27,7 +27,7 @@ void print_result(const fb::query& q)
 {
     // Description is std::vector<std::string_view>
     std::cout << "columns: [";
-    for (std::string_view col : q.description())
+    for (std::string_view col : q.column_names())
         std::cout << col << ", ";
     std::cout << "]" << std::endl;
 

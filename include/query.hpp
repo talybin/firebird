@@ -31,7 +31,7 @@ struct query
     iterator end() const;
 
     // Get column names
-    std::vector<std::string_view> description() const;
+    std::vector<std::string_view> column_names() const;
 
     // Get row values
     template <class F>
@@ -241,7 +241,7 @@ std::cout << "execute params:\n" << c->_params;
 
 
 // Get column names
-std::vector<std::string_view> query::description() const
+std::vector<std::string_view> query::column_names() const
 {
     std::vector<std::string_view> view;
     view.reserve(_context->_fields.size());

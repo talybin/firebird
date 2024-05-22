@@ -89,6 +89,10 @@ struct sqlvar
     std::string_view name() const
     { return std::string_view(_ptr->sqlname, _ptr->sqlname_length); }
 
+    // Get table name
+    std::string_view table() const
+    { return std::string_view(_ptr->relname, _ptr->relname_length); }
+
     // This will show actual max column size
     // before set() destroys it
     size_t size() const

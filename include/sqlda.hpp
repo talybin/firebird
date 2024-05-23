@@ -59,6 +59,7 @@ struct sqlda
     // Allocate aligned space for incoming data
     void alloc_data() noexcept;
 
+    #if 0
     // std::tuple<...> tup
     // get(tup, std::index_sequence<0, 2, 4>{})
     template <class... Args, size_t... I>
@@ -94,6 +95,11 @@ struct sqlda
         T tup;
         return get(tup);
     }
+    #endif
+
+    template <size_t... I>
+    auto get() const
+    { return std::make_tuple(sqlvar(&_ptr->sqlvar[I])...); }
 
     // Set input parameters.
     // Note! This creates a view to arguments and XSQLVARs
@@ -133,6 +139,7 @@ private:
     template <size_t>
     using field_index_t = field_t;
 
+    #if 0
     // Call callback with expanded column values
     template <class F, size_t... I>
     auto visit(F&& cb, std::index_sequence<I...>) const -> decltype(std::visit(cb, field_index_t<I>()...))
@@ -141,6 +148,7 @@ private:
     // Take care of callbacks with wrong number of arguments (nr args != nr cols)
     void visit(...) const
     { throw fb::exception("visit: wrong number of arguments"); }
+    #endif
 };
 
 
@@ -219,7 +227,7 @@ sqlda::set(const Args&... args)
             << size() << ", called with " << cnt << ")";
 
     auto it = begin();
-    ((it->set(args), ++it), ...);
+    //((it->set(args), ++it), ...);
 }
 
 

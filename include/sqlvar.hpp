@@ -5,8 +5,17 @@
 #include <cstdlib>
 #include <stdexcept>
 
+
 namespace fb
 {
+
+struct sqlvar;
+
+template <class T>
+struct sql_value
+{
+    T get(const sqlvar* v) const;
+};
 
 // This is only a view of XSQLVAR. Be carefull with expired values.
 // See https://docwiki.embarcadero.com/InterBase/2020/en/XSQLVAR_Field_Descriptions
@@ -16,6 +25,7 @@ struct sqlvar
     using pointer = std::add_pointer_t<type>;
 
     explicit sqlvar(pointer var) : _ptr(var) { }
+/*
 
     // Set methods
 
@@ -61,13 +71,6 @@ struct sqlvar
 
     // Get methods
 
-    // Return the internal pointer to XSQLVAR
-    const pointer handle() const noexcept
-    { return _ptr; }
-
-    pointer handle() noexcept
-    { return _ptr; }
-
     // Get the value as a variant (field_t)
     field_t get() const;
 
@@ -85,6 +88,14 @@ struct sqlvar
     template <class T>
     operator T() const
     { return get<T>(); }
+*/
+
+    // Return the internal pointer to XSQLVAR
+    const pointer handle() const noexcept
+    { return _ptr; }
+
+    pointer handle() noexcept
+    { return _ptr; }
 
     // Get column name
     std::string_view name() const noexcept
@@ -94,6 +105,9 @@ struct sqlvar
     std::string_view table() const noexcept
     { return std::string_view(_ptr->relname, _ptr->relname_length); }
 
+    uint16_t sql_datatype() const noexcept
+    { return _ptr->sqltype & ~1; }
+
     // This will show actual max column size before set() destroys it
     size_t size() const noexcept
     { return _ptr->sqllen; }
@@ -101,6 +115,34 @@ struct sqlvar
     bool is_null() const noexcept
     { return (_ptr->sqltype & 1) && (*_ptr->sqlind < 0); }
 
+    operator bool() const noexcept
+    { return !is_null(); }
+
+    //template <class T, class U = T>
+    //U get_value() const;
+    //template <class T>
+    //auto get_value() const;
+
+    template <class T>
+    auto value() const -> decltype(sql_value<T>().get(this))
+    {
+        if (is_null())
+            throw fb::exception("type is null");
+        return sql_value<T>().get(this);
+    }
+    //{
+        //return std::visit([](auto val) { return T(val); }, get());
+    //}
+
+    template <class T>
+    auto value_or(T default_value) const -> decltype(sql_value<T>().get(this))
+    {
+        if (is_null())
+            return default_value;
+        return sql_value<T>().get(this);
+    }
+
+    field_t get() const;
 private:
     // Internal pointer to XSQLVAR
     pointer _ptr;
@@ -114,7 +156,88 @@ private:
             tens *= 10;
         return tens;
     }
+
+
+    //template <class T>
+    //T get_value() const;
 };
+
+
+template <class T>
+T sql_value<T>::get(const sqlvar* v) const
+{
+    return std::visit(detail::overloaded {
+        [](T val) { return val; },
+        [](...) -> T {
+            throw fb::exception("can't convert to type ") << detail::type_name<T>();
+        }
+    }, v->get());
+}
+
+template <>
+struct sql_value<const char*>
+{
+    std::string_view get(const sqlvar* v) const
+    { return std::get<std::string_view>(v->get()); }
+};
+
+template <>
+struct sql_value<std::string>
+{
+    std::string get(const sqlvar* v) const
+    {
+        return std::visit(detail::overloaded {
+            [](auto val) -> decltype(std::to_string(val)) {
+                return std::to_string(val);
+            },
+            [](std::string_view val) {
+                return std::string(val);
+            },
+            [](...) -> std::string {
+                throw fb::exception("can't convert to std::string");
+            }
+        }, v->get());
+    }
+};
+
+
+/*
+template <>
+struct sql_value<int>
+{
+    int get(const sqlvar* v) const
+    {
+        return std::visit(detail::overloaded {
+            [](int val) { return val; },
+            [](...) -> int { throw fb::exception("can't be converted to int"); }
+        }, v->get());
+    }
+};
+*/
+
+
+/*
+template <>
+int sqlvar::get_value<int>() const
+{
+    return 0;
+}
+
+#if 1
+template <>
+//const char* sqlvar::get_value<const char*>() const
+std::string_view sqlvar::get_value<const char*>() const
+{
+    return "hej";
+}
+#else
+template <>
+std::string_view sqlvar::get_value<std::string_view>() const
+{
+    return "hej";
+}
+#endif
+*/
 
 
 // Get value variant (field_t) based on the type of SQL data
@@ -206,6 +329,7 @@ field_t sqlvar::get() const
         throw fb::exception("type (") << dtype << ") not implemented";
     }
 }
+
 
 } // namespace fb
 

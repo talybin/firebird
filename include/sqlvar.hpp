@@ -118,126 +118,40 @@ struct sqlvar
     operator bool() const noexcept
     { return !is_null(); }
 
-    //template <class T, class U = T>
-    //U get_value() const;
-    //template <class T>
-    //auto get_value() const;
 
     template <class T>
-    auto value() const -> decltype(sql_value<T>().get(this))
+    T value() const
     {
         if (is_null())
             throw fb::exception("type is null");
-        return sql_value<T>().get(this);
+        return get_value<T>();
     }
-    //{
-        //return std::visit([](auto val) { return T(val); }, get());
-    //}
 
     template <class T>
-    auto value_or(T default_value) const -> decltype(sql_value<T>().get(this))
+    T value_or(T default_value) const
     {
         if (is_null())
             return default_value;
-        return sql_value<T>().get(this);
+        return get_value<T>();
     }
 
-    field_t get() const;
 private:
     // Internal pointer to XSQLVAR
     pointer _ptr;
 
-    // Helper method to get scaled value of base 10
-    size_t scale_tens() const noexcept
-    {
-        int scale = std::abs(_ptr->sqlscale);
-        int tens = 1;
-        for (; scale > 0; --scale)
-            tens *= 10;
-        return tens;
-    }
-
-
-    //template <class T>
-    //T get_value() const;
-};
-
-
-template <class T>
-T sql_value<T>::get(const sqlvar* v) const
-{
-    return std::visit(detail::overloaded {
-        [](T val) { return val; },
-        [](...) -> T {
-            throw fb::exception("can't convert to type ") << detail::type_name<T>();
-        }
-    }, v->get());
-}
-
-template <>
-struct sql_value<const char*>
-{
-    std::string_view get(const sqlvar* v) const
-    { return std::get<std::string_view>(v->get()); }
-};
-
-template <>
-struct sql_value<std::string>
-{
-    std::string get(const sqlvar* v) const
+    template <class T>
+    T get_value() const
     {
         return std::visit(detail::overloaded {
-            [](auto val) -> decltype(std::to_string(val)) {
-                return std::to_string(val);
-            },
-            [](std::string_view val) {
-                return std::string(val);
-            },
-            [](...) -> std::string {
-                throw fb::exception("can't convert to std::string");
+            type_converter<T>{},
+            [](...) -> T {
+                throw fb::exception("can't convert to type ") << detail::type_name<T>();
             }
-        }, v->get());
+        }, get());
     }
+
+    field_t get() const;
 };
-
-
-/*
-template <>
-struct sql_value<int>
-{
-    int get(const sqlvar* v) const
-    {
-        return std::visit(detail::overloaded {
-            [](int val) { return val; },
-            [](...) -> int { throw fb::exception("can't be converted to int"); }
-        }, v->get());
-    }
-};
-*/
-
-
-/*
-template <>
-int sqlvar::get_value<int>() const
-{
-    return 0;
-}
-
-#if 1
-template <>
-//const char* sqlvar::get_value<const char*>() const
-std::string_view sqlvar::get_value<const char*>() const
-{
-    return "hej";
-}
-#else
-template <>
-std::string_view sqlvar::get_value<std::string_view>() const
-{
-    return "hej";
-}
-#endif
-*/
 
 
 // Get value variant (field_t) based on the type of SQL data
@@ -266,6 +180,11 @@ field_t sqlvar::get() const
     }
 
     case SQL_SHORT:
+    #if 1
+        return field_t(
+            std::in_place_type<scaled_integer<int16_t>>,
+            *reinterpret_cast<int16_t*>(data), _ptr->sqlscale);
+    #else
     {
         int16_t val = *reinterpret_cast<int16_t*>(data);
         if (_ptr->sqlscale < 0)
@@ -275,8 +194,14 @@ field_t sqlvar::get() const
         else
             return field_t(std::in_place_type<int16_t>, val);
     }
+    #endif
 
     case SQL_LONG:
+    #if 1
+        return field_t(
+            std::in_place_type<scaled_integer<int32_t>>,
+            *reinterpret_cast<int32_t*>(data), _ptr->sqlscale);
+    #else
     {
         int32_t val = *reinterpret_cast<int32_t*>(data);
         if (_ptr->sqlscale < 0)
@@ -286,8 +211,14 @@ field_t sqlvar::get() const
         else
             return field_t(std::in_place_type<int32_t>, val);
     }
+    #endif
 
     case SQL_INT64:
+    #if 1
+        return field_t(
+            std::in_place_type<scaled_integer<int64_t>>,
+            *reinterpret_cast<int64_t*>(data), _ptr->sqlscale);
+    #else
     {
         int64_t val = *reinterpret_cast<int64_t*>(data);
         if (_ptr->sqlscale < 0)
@@ -297,6 +228,7 @@ field_t sqlvar::get() const
         else
             return field_t(std::in_place_type<int64_t>, val);
     }
+    #endif
 
     case SQL_FLOAT:
         return field_t(std::in_place_type<float>, *reinterpret_cast<float*>(data));

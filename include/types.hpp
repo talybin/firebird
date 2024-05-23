@@ -4,9 +4,31 @@
 #include <variant>
 #include <string_view>
 #include <ctime>
+#include <charconv>
+#include <iomanip>
 
 namespace fb
 {
+
+namespace detail
+{
+    // Reflection
+    template <class T>
+    inline constexpr std::string_view type_name()
+    {
+        std::string_view sv = __PRETTY_FUNCTION__;
+        sv.remove_prefix(sv.find('=') + 2);
+        return { sv.data(), sv.find(';') };
+    }
+
+    // Helper type for the visitor
+    template <class... Ts>
+    struct overloaded : Ts... { using Ts::operator()...; };
+    // Explicit deduction guide (not needed as of C++20)
+    template <class... Ts>
+    overloaded(Ts...) -> overloaded<Ts...>;
+
+} // namespace detail
 
 // Tag to skip parameter
 struct skip_t { };
@@ -46,14 +68,54 @@ struct timestamp_t : ISC_TIMESTAMP
     { return (timestamp_time / 10) % 1000; }
 };
 
+template <class T>
+struct scaled_integer
+{
+    T _value;
+    short _scale;
+
+    explicit scaled_integer(T value, short scale = 0) noexcept
+    : _value(value)
+    , _scale(scale)
+    { }
+
+    template <class U = T>
+    U get() const noexcept
+    {
+        U val = _value;
+    // TODO check overflow
+        for (auto x = 0; x < _scale; ++x)
+            val *= 10;
+        for (auto x = _scale; x < 0; ++x)
+            val /= 10;
+        return val;
+    }
+
+    // TODO add to_string()
+};
+
+#if 0
+template <class T>
+struct is_scaled_integer : std::false_type
+{ };
+
+template <class T>
+struct is_scaled_integer<scaled_integer<T>> : std::true_type
+{ };
+
+template <class T>
+inline constexpr bool is_scaled_integer_v = is_scaled_integer<T>::value;
+#endif
+
+
 using blob_id_t = ISC_QUAD;
 
 using field_t = std::variant<
     std::nullptr_t,
     std::string_view,
-    int16_t,
-    int32_t,
-    int64_t,
+    scaled_integer<int16_t>,
+    scaled_integer<int32_t>,
+    scaled_integer<int64_t>,
     float,
     double,
     timestamp_t,
@@ -61,54 +123,69 @@ using field_t = std::variant<
 >;
 
 
-// Visitor with type conversion
+// Visitors with type conversion.
+// Where T is requested type and argument to call operator
+// is field_t value.
+// Note, these visitors called only for non-null values, e.g.
+// no need to check for nullptr_t.
+
+template <class T, class = void>
+struct type_converter;
+
+// T is integral type or floating point
 template <class T>
-struct type_converter
+struct type_converter<T, std::enable_if_t<std::is_arithmetic_v<T>> >
 {
-    template <class F>
-    std::enable_if_t<std::is_convertible_v<F, T>, T>
-    operator()(F&& f) const
-    { return std::forward<F>(f); }
+    template <class U>
+    T operator()(scaled_integer<U> val) const
+    { return val.template get<T>(); }
+
+    // Convert string to arithmetic
+    T operator()(std::string_view val) const
+    {
+        T ret{};
+        auto [ptr, ec] = std::from_chars(val.data(), val.data() + val.size(), ret);
+        if (ec == std::errc())
+            return ret;
+        else if (ec == std::errc::invalid_argument)
+            throw fb::exception() << std::quoted(val) << " is not a number";
+        else if (ec == std::errc::result_out_of_range)
+            throw fb::exception("number \"") << val << "\" is larger than "
+                                  << detail::type_name<T>();
+        else
+            throw fb::exception("can't convert string \"") << val << "\" to "
+                                  << detail::type_name<T>();
+    }
 };
 
-// Visitor for string as resultat
+// T is std::string_view
+template <>
+struct type_converter<std::string_view>
+{
+    // Only string_view types can be returned as string_view
+    std::string_view operator()(std::string_view val) const
+    { return val; }
+};
+
+// T is std::string
 template <>
 struct type_converter<std::string>
 {
-    using T = std::string;
+    // std::string_view
+    auto operator()(std::string_view val) const
+    { return std::string(val);}
 
-    // Can be constructed from
-    template <class F>
-    std::enable_if_t<std::is_constructible_v<T, F>, T>
-    operator()(F&& f) const
-    { return T(std::forward<F>(f)); }
+    // float, double
+    template <class U>
+    auto operator()(U val) const -> decltype(std::to_string(val))
+    { return std::to_string(val); }
 
-    // Integer and floating point types
-    template <class F>
-    auto operator()(F&& f) const -> decltype(std::to_string(f))
-    { return std::to_string(f); }
+    // scaled_integer
+    template <class U>
+    auto operator()(scaled_integer<U> val) const
+    { return std::to_string(val.template get()); }
 };
 
-
-namespace detail
-{
-    // Reflection
-    template <class T>
-    inline constexpr std::string_view type_name()
-    {
-        std::string_view sv = __PRETTY_FUNCTION__;
-        sv.remove_prefix(sv.find('=') + 2);
-        return { sv.data(), sv.find(';') };
-    }
-
-    // Helper type for the visitor
-    template <class... Ts>
-    struct overloaded : Ts... { using Ts::operator()...; };
-    // Explicit deduction guide (not needed as of C++20)
-    template <class... Ts>
-    overloaded(Ts...) -> overloaded<Ts...>;
-
-} // namespace detail
 
 // Helper methods
 // Details

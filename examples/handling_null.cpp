@@ -29,6 +29,8 @@ public:
 
     void handle_null()
     {
+        using namespace std::literals;
+
         fb::query q(db,
             "select first 3 * from employee where emp_no > 140");
 
@@ -38,13 +40,15 @@ public:
                 row.get<EMP_NO, LAST_NAME, HIRE_DATE, PHONE_EXT>();
                 // or row.get<types, 0, 2, 4>()
 
+            std::cout << emp_no.name() << ": "
+                      << emp_no.value<int>() << std::endl;
+
             if (emp_no)
                 std::cout << emp_no.name() << ": "
-                          //<< emp_no.value<int>() << std::endl;
                           << emp_no.value<std::string>() << std::endl;
 
             std::cout << phone_ext.name() << ": "
-                      << phone_ext.value_or("unknown") << std::endl;
+                      << phone_ext.value_or("unknown"sv) << std::endl;
 
             std::cout << last_name.name() << ": "
                       << last_name.value_or<std::string>("unknown") << std::endl;

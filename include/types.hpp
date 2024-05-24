@@ -14,7 +14,7 @@ namespace detail
 {
     // Reflection
     template <class T>
-    inline constexpr std::string_view type_name()
+    inline constexpr std::string_view type_name() noexcept
     {
         std::string_view sv = __PRETTY_FUNCTION__;
         sv.remove_prefix(sv.find('=') + 2);
@@ -40,31 +40,33 @@ struct timestamp_t : ISC_TIMESTAMP
     // Convert timestamp_t to time_t.
     // Note, this will cut all dates below 1970-01-01, use to_tm() instead.
     // 40587 is GDS epoch start in days (since 1858-11-17, time_t starts at 1970).
-    time_t to_time_t() const
+    time_t to_time_t() const noexcept
     { return std::max(int(timestamp_date) - 40587, 0) * 86400 + timestamp_time / 10'000; }
 
-    std::tm* to_tm(std::tm* t) const {
+    std::tm* to_tm(std::tm* t) const noexcept {
         isc_decode_timestamp(const_cast<timestamp_t*>(this), t);
         return t;
     }
 
-    static timestamp_t from_time_t(time_t t) {
+    static timestamp_t from_time_t(time_t t) noexcept
+    {
         timestamp_t ret;
         ret.timestamp_date = t / 86400 + 40587;
         ret.timestamp_time = (t % 86400) * 10'000;
         return ret;
     }
 
-    static timestamp_t from_tm(std::tm* t) {
+    static timestamp_t from_tm(std::tm* t) noexcept
+    {
         timestamp_t ret;
         isc_encode_timestamp(t, &ret);
         return ret;
     }
 
-    static timestamp_t now()
+    static timestamp_t now() noexcept
     { return from_time_t(time(0)); }
 
-    size_t ms() const
+    size_t ms() const noexcept
     { return (timestamp_time / 10) % 1000; }
 };
 
@@ -91,21 +93,37 @@ struct scaled_integer
         return val;
     }
 
-    // TODO add to_string()
+    std::string_view to_string(char* buf, size_t size)
+    {
+        char* end = buf + size;
+        // Reserve space for scale operation
+        if (_scale < 0) --end;
+        else if (_scale) end -= _scale;
+
+        auto [it, ec] = std::to_chars(buf, end, _value);
+        if (ec == std::errc()) {
+            // No error
+            if (_scale < 0) {
+                // Shift scaled digits one step and insert dot
+                for (auto x = _scale; x < 0; ++x, --it)
+                    *it = it[-1];
+                *it = '.';
+                it += -_scale + 1;
+            }
+            // Add postfix zeroes if _scale > 0
+            for (auto x = 0; x < _scale; ++x, ++it)
+                *it = '0';
+            return { buf, size_t(it - buf) };
+        }
+        throw fb::exception(std::make_error_code(ec).message());
+    }
+
+    std::string to_string()
+    {
+        char buf[64];
+        return std::string(to_string(buf, sizeof(buf)));
+    }
 };
-
-#if 0
-template <class T>
-struct is_scaled_integer : std::false_type
-{ };
-
-template <class T>
-struct is_scaled_integer<scaled_integer<T>> : std::true_type
-{ };
-
-template <class T>
-inline constexpr bool is_scaled_integer_v = is_scaled_integer<T>::value;
-#endif
 
 
 using blob_id_t = ISC_QUAD;
@@ -147,14 +165,9 @@ struct type_converter<T, std::enable_if_t<std::is_arithmetic_v<T>> >
         auto [ptr, ec] = std::from_chars(val.data(), val.data() + val.size(), ret);
         if (ec == std::errc())
             return ret;
-        else if (ec == std::errc::invalid_argument)
-            throw fb::exception() << std::quoted(val) << " is not a number";
-        else if (ec == std::errc::result_out_of_range)
-            throw fb::exception("number \"") << val << "\" is larger than "
-                                  << detail::type_name<T>();
-        else
-            throw fb::exception("can't convert string \"") << val << "\" to "
-                                  << detail::type_name<T>();
+        throw fb::exception("can't convert string \"") << val << "\" to "
+                            << detail::type_name<T>() << "("
+                            << std::make_error_code(ec).message() << ")";
     }
 };
 
@@ -183,7 +196,7 @@ struct type_converter<std::string>
     // scaled_integer
     template <class U>
     auto operator()(scaled_integer<U> val) const
-    { return std::to_string(val.template get()); }
+    { return val.to_string(); }
 };
 
 

@@ -43,9 +43,12 @@ public:
             std::cout << emp_no.name() << ": "
                       << emp_no.value<int>() << std::endl;
 
-            if (emp_no)
+            if (emp_no) {
                 std::cout << emp_no.name() << ": "
                           << emp_no.value<std::string>() << std::endl;
+                int val = emp_no;
+                std::cout << "by operator cast: " << val << std::endl;
+            }
 
             std::cout << phone_ext.name() << ": "
                       << phone_ext.value_or("unknown"sv) << std::endl;

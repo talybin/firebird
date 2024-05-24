@@ -7,13 +7,15 @@ struct database;
 
 struct transaction
 {
-    transaction(database& db);
+    transaction(database& db) noexcept;
 
     // Start transaction if not started
     void start();
 
+    // Commit pending queries
     void commit();
 
+    // Cancel pending queries
     void rollback();
 
     // Internal pointer to isc_tr_handle

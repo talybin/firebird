@@ -10,7 +10,7 @@ namespace fb
 
 // Run API method and ignore status result
 template <class F, class... Args>
-inline int invoke_noexcept(F&& fn, Args&&... args)
+inline int invoke_noexcept(F&& fn, Args&&... args) noexcept
 {
     ISC_STATUS_ARRAY st;
     return fn(st, std::forward<Args>(args)...);
@@ -39,7 +39,7 @@ struct database
 
     // Constructor
     database(std::string_view path,
-        std::string_view user = "sysdba", std::string_view passwd = "masterkey");
+        std::string_view user = "sysdba", std::string_view passwd = "masterkey") noexcept;
 
     // Connect. Throw exeption on error.
     void connect();

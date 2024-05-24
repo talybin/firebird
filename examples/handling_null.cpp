@@ -37,8 +37,8 @@ public:
         for (auto& row : q.execute())
         {
             auto [emp_no, last_name, hire_date, phone_ext] =
-                row.get<EMP_NO, LAST_NAME, HIRE_DATE, PHONE_EXT>();
-                // or row.get<types, 0, 2, 4>()
+                row.as_tuple<EMP_NO, LAST_NAME, HIRE_DATE, PHONE_EXT>();
+                // or row.as_tuple<types, 0, 2, 4>()
 
             std::cout << emp_no.name() << ": "
                       << emp_no.value<int>() << std::endl;

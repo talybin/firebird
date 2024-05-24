@@ -9,11 +9,11 @@ struct query
 {
     struct iterator;
 
-    query(transaction tr, std::string_view sql)
+    query(transaction tr, std::string_view sql) noexcept
     : _context(std::make_shared<context_t>(tr, sql))
     { }
 
-    query(database db, std::string_view sql)
+    query(database db, std::string_view sql) noexcept
     : query(db.default_transaction(), sql)
     { }
 

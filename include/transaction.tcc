@@ -6,7 +6,7 @@ namespace fb
 
 struct transaction::context_t
 {
-    context_t(database& db)
+    context_t(database& db) noexcept
     : _db(db)
     { }
 
@@ -15,7 +15,7 @@ struct transaction::context_t
 };
 
 
-transaction::transaction(database& db)
+transaction::transaction(database& db) noexcept
 : _context(std::make_shared<context_t>(db))
 { }
 

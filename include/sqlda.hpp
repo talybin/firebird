@@ -21,7 +21,7 @@ struct sqlda
     using ptr_t = std::unique_ptr<type, decltype(&free)>;
     using data_buffer_t = std::vector<char>;
 
-    explicit sqlda(size_t nr_cols = 0)
+    explicit sqlda(size_t nr_cols = 0) noexcept
     : _ptr(alloc(nr_cols))
     { }
 
@@ -98,7 +98,7 @@ struct sqlda
     #endif
 
     template <size_t... I>
-    auto get() const
+    auto as_tuple() const
     { return std::make_tuple(sqlvar(&_ptr->sqlvar[I])...); }
 
     // Set input parameters.

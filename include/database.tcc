@@ -48,7 +48,7 @@ struct database::context_t
 
 
 database::database(
-    std::string_view path, std::string_view user, std::string_view passwd)
+    std::string_view path, std::string_view user, std::string_view passwd) noexcept
 : _context(std::make_shared<context_t>(path))
 {
     _def_trans = std::make_shared<transaction>(*this);

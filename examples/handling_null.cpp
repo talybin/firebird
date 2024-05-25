@@ -1,78 +1,48 @@
-#include <iostream>
 #include "firebird.hpp"
+#include <iostream>
 
-// EMPLOYEE table
-class employee
+void handle_null(fb::database db)
 {
-    enum columns {
-        EMP_NO,
-        FIRST_NAME,
-        LAST_NAME,
-        PHONE_EXT,
-        HIRE_DATE,
-        DEPT_NO,
-        JOB_CODE,
-        JOB_GRADE,
-        JOB_COUNTRY,
-        SALARY,
-        FULL_NAME,
-    };
+    using namespace std::literals;
 
-    fb::database db;
+    // Select 2 rows where PHONE_EXT can be null
+    fb::query q(db,
+        "select first 2 emp_no, phone_ext from employee where emp_no > 140");
 
-public:
-    employee(std::string_view path)
-    : db(path)
+    for (auto& row : q.execute())
     {
-        db.connect();
+        // EMP_NO (smallint), not null
+        fb::sqlvar emp_no = row[0];
+
+        // We know that it can not be null, read it without check.
+        std::cout << emp_no.name() << ": "
+                  << emp_no.value<int>() << std::endl;
+
+        // PHONE_EXT (varchar(4)), can be null
+        fb::sqlvar phone_ext = row[1];
+
+        // Check before read, otherwise reading value will throw on null
+        if (phone_ext)
+        // ...or if (!phone_ext.is_null())
+            std::cout << phone_ext.name() << " (value): "
+                      << phone_ext.value<std::string_view>() << std::endl;
+
+        // Alt. use value_or() to return default value
+        std::cout << phone_ext.name() << " (value_or): "
+                  << phone_ext.value_or("unknown"sv) << std::endl;
+
+        // Separate rows
+        std::cout << "---" << std::endl;
     }
-
-    void handle_null()
-    {
-        using namespace std::literals;
-
-        fb::query q(db,
-            "select first 3 * from employee where emp_no > 140");
-
-        for (auto& row : q.execute())
-        {
-            auto [emp_no, last_name, hire_date, phone_ext] =
-                row.as_tuple<EMP_NO, LAST_NAME, HIRE_DATE, PHONE_EXT>();
-                // or row.as_tuple<types, 0, 2, 4>()
-
-            std::cout << emp_no.name() << ": "
-                      << emp_no.value<int>() << std::endl;
-
-            if (emp_no) {
-                std::cout << emp_no.name() << ": "
-                          << emp_no.value<std::string>() << std::endl;
-                int val = emp_no;
-                std::cout << "by operator cast: " << val << std::endl;
-            }
-
-            std::cout << phone_ext.name() << ": "
-                      << phone_ext.value_or("unknown"sv) << std::endl;
-
-            std::cout << last_name.name() << ": "
-                      << last_name.value_or<std::string>("unknown") << std::endl;
-
-            std::cout << "-------------------" << std::endl;
-
-            #if 0
-            row.visit([](auto... fields) {
-                std::cout << "nr args:" << sizeof...(fields) << std::endl;
-            });
-            #endif
-        }
-    }
-};
+}
 
 int main()
 {
     try {
-        employee emp("localhost/3053:employee");
-        // Run query
-        emp.handle_null();
+        fb::database emp("localhost/3053:employee");
+        emp.connect();
+
+        handle_null(emp);
     }
     catch (const std::exception& ex) {
         std::cout << "ERROR: " << ex.what() << std::endl;

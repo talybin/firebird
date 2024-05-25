@@ -162,7 +162,7 @@ struct type_converter<T, std::enable_if_t<std::is_arithmetic_v<T>> >
     T operator()(std::string_view val) const
     {
         T ret{};
-        auto [ptr, ec] = std::from_chars(val.data(), val.data() + val.size(), ret);
+        auto [ptr, ec] = std::from_chars(val.begin(), val.end(), ret);
         if (ec == std::errc())
             return ret;
         throw fb::exception("can't convert string \"") << val << "\" to "
@@ -176,7 +176,7 @@ template <>
 struct type_converter<std::string_view>
 {
     // Only string_view types can be returned as string_view
-    std::string_view operator()(std::string_view val) const
+    std::string_view operator()(std::string_view val) const noexcept
     { return val; }
 };
 
@@ -185,7 +185,7 @@ template <>
 struct type_converter<std::string>
 {
     // std::string_view
-    auto operator()(std::string_view val) const
+    auto operator()(std::string_view val) const noexcept
     { return std::string(val);}
 
     // float, double

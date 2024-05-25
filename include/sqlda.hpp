@@ -59,47 +59,15 @@ struct sqlda
     // Allocate aligned space for incoming data
     void alloc_data() noexcept;
 
-    #if 0
-    // std::tuple<...> tup
-    // get(tup, std::index_sequence<0, 2, 4>{})
-    template <class... Args, size_t... I>
-    std::tuple<Args...>&
-    get(std::tuple<Args...>& t, std::index_sequence<I...>) const
-    {
-        ((std::get<I>(t) = sqlvar(&_ptr->sqlvar[I]).get<Args>()), ...);
-        return t;
-    }
-
-    // std::tuple<...> tup
-    // get(tup)
-    template <class... Args>
-    std::tuple<Args...>& get(std::tuple<Args...>& tup) const
-    { return get(tup, std::index_sequence_for<Args...>{}); }
-
-    // Build a reduced tuple of selected indexes.
-    // Ex:
-    //   using from_t = std::tuple<int, std::string, float>;
-    //   std::tuple<int, float> t = select<from_t, 0, 2>();
-    template <class T, size_t... I, class = std::enable_if_t<is_tuple_v<T>> >
-    auto select() const
-    {
-        return std::make_tuple(
-            sqlvar(&_ptr->sqlvar[I]).get<std::tuple_element_t<I, T>>()...);
-    }
-
-    // get<std::tuple<...>>()
-    template <class T>
-    std::enable_if_t<is_tuple_v<T>, T>
-    get() const
-    {
-        T tup;
-        return get(tup);
-    }
-    #endif
-
-    template <size_t... I>
-    auto as_tuple() const
+    // Return tuple of given indexes
+    template <auto... I, std::enable_if_t<(std::is_integral_v<decltype(I)> && ...), int> = 0>
+    auto as_tuple() const noexcept
     { return std::make_tuple(sqlvar(&_ptr->sqlvar[I])...); }
+
+    // Return tuple of enum values
+    template <auto... E, std::enable_if_t<(std::is_enum_v<decltype(E)> && ...), int> = 0>
+    auto as_tuple() const noexcept
+    { return as_tuple<static_cast<size_t>(E)...>(); }
 
     // Set input parameters.
     // Note! This creates a view to arguments and XSQLVARs

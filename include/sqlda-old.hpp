@@ -206,12 +206,82 @@ sqlda::set(const Args&... args)
     ((it->set(args), ++it), ...);
 }
 
+template <size_t>
+using field_index = field_t;
+
+template <class T, class R>
+using mytype = T;
+
+#if 0
+template <class F, size_t... I,
+    class = std::void_t<decltype(std::visit(std::declval<F>(), std::declval<field_index<I>>()...))>>
+using visitable = F;
+//using visitable = mytype<F,
+//    std::void_t< decltype(std::visit(std::declval<F>(), std::declval<field_index<I>>()...)) >>;
+#else
+template <class F, size_t... I>
+struct my_test {
+    using D = std::decay_t<F>;
+
+    template <class = std::void_t<
+        decltype(std::visit(std::declval<D>(), std::declval<field_index<I>>()...))
+    >>
+    using visitable = F;
+};
+#endif
+
+template <class F, size_t... I>
+using visitable_t = typename my_test<F, I...>::visitable;
+
+
+template <class F, size_t... I>
+void visit_helper(
+    //visitable<std::decay_t<F>, I...>& f, sqlvar::pointer ptr, std::index_sequence<I...>)
+    visitable_t<F, I...>& f, sqlvar::pointer ptr, std::index_sequence<I...>)
+{
+    std::visit(f, sqlvar(&ptr[I]).as_variant()...);
+}
+
+void visit_helper(...)
+{ throw fb::exception("visit: wrong number of arguments"); }
+
+
+
+template <size_t N, class F, size_t... I>
+std::void_t<decltype(std::visit(std::declval<F>(), field_index<I>()...))>
+visit_cb2(F& cb, sqlvar::pointer ptr, std::index_sequence<I...>)
+{
+    std::visit(cb, sqlvar(&ptr[I]).as_variant()...);
+}
+
+// Could return false instead and count read from the caller
+template <size_t N>
+void visit_cb2(...)
+{
+    throw fb::exception("visit: wrong number of arguments: ") << N;
+}
+
+template <size_t I, class F>
+void visit_cb(F& cb, sqlvar::pointer ptr)
+{
+    visit_cb2<I>(cb, ptr, std::make_index_sequence<I>{});
+}
 
 // Visit columns/params where
 // F is visitor accepting types of field_t
 template <class F>
 void sqlda::visit(F&& cb) const
 {
+    #if 0
+    using cb_t = void(*)(F&, sqlvar::pointer);
+
+    auto visit_helper = [&]<size_t... I>(std::index_sequence<I...>)
+    {
+        cb_t cbarr[] = { &visit_cb<I>... };
+        cbarr[size()](cb, _ptr->sqlvar);
+    };
+    visit_helper(std::make_index_sequence<50>{});
+    #else
     auto visit_helper = detail::overloaded {
         // Testing here with decltype takes a long time to compile
         [&]<size_t... I>(std::index_sequence<I...>)
@@ -230,8 +300,8 @@ void sqlda::visit(F&& cb) const
     });
     if (!fits_in)
         throw fb::exception("visit: not enough supported fields");
+    #endif
 }
-
 
 // Allocate aligned space for incoming data
 void sqlda::alloc_data() noexcept

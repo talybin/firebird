@@ -1,5 +1,6 @@
 #pragma once
 #include "exception.hpp"
+#include "details.hpp"
 
 #include <variant>
 #include <string_view>
@@ -9,38 +10,6 @@
 
 namespace fb
 {
-
-namespace detail
-{
-    // Reflection
-    template <class T>
-    inline constexpr std::string_view type_name() noexcept
-    {
-        std::string_view sv = __PRETTY_FUNCTION__;
-        sv.remove_prefix(sv.find('=') + 2);
-        return { sv.data(), sv.find(';') };
-    }
-
-    // Helper type for the visitor
-    template <class... Ts>
-    struct overloaded : Ts... { using Ts::operator()...; };
-    // Explicit deduction guide (not needed as of C++20)
-    template <class... Ts>
-    overloaded(Ts...) -> overloaded<Ts...>;
-
-    template <class F, class T,
-        class = std::void_t<decltype(static_cast<T>(std::declval<F>()))>>
-    using static_castable = F;
-
-    // Concept to accept enum values
-    template <class F>
-    using index_castable = static_castable<F, size_t>;
-
-} // namespace detail
-
-// Tag to skip parameter
-struct skip_t { };
-inline constexpr skip_t skip;
 
 // Methods to convert timestamp
 struct timestamp_t : ISC_TIMESTAMP
@@ -78,6 +47,7 @@ struct timestamp_t : ISC_TIMESTAMP
     { return (timestamp_time / 10) % 1000; }
 };
 
+// SQL integer type
 template <class T>
 struct scaled_integer
 {
@@ -133,9 +103,10 @@ struct scaled_integer
     }
 };
 
-
+// BLOB type
 using blob_id_t = ISC_QUAD;
 
+// SQL types
 using field_t = std::variant<
     std::nullptr_t,
     std::string_view,
@@ -147,7 +118,6 @@ using field_t = std::variant<
     timestamp_t,
     blob_id_t
 >;
-
 
 // Visitors with type conversion.
 // Where T is requested type and argument to call operator
@@ -203,29 +173,9 @@ struct type_converter<std::string>
     { return val.to_string(); }
 };
 
-
-// Helper methods
-// Details
-// namespace detail {
-
-// Extract run-time value as a compile-time constant
-template <class F, size_t... I>
-inline bool to_const(size_t value, F&& fn, std::index_sequence<I...>)
-{ return ((value == I && (fn(std::integral_constant<size_t, I>{}), true)) || ...); }
-
-template <size_t N, class F>
-inline bool to_const(size_t value, F&& fn)
-{ return to_const(value, fn, std::make_index_sequence<N>{}); }
-
-// Detect a type list
-template <class>
-struct is_tuple : std::false_type { };
-
-template <class... Args>
-struct is_tuple<std::tuple<Args...>> : std::true_type { };
-
-template <class T>
-inline constexpr bool is_tuple_v = is_tuple<T>::value;
+// Tag to skip parameter
+struct skip_t { };
+inline constexpr skip_t skip;
 
 } // namespace fb
 

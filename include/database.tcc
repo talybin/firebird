@@ -29,7 +29,7 @@ struct database::params
 struct database::context_t
 {
     //context_t(database& parent, std::string_view path)
-    context_t(std::string_view path)
+    context_t(std::string_view path) noexcept
     : _path(path)
     { }
 

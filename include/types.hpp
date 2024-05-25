@@ -28,6 +28,14 @@ namespace detail
     template <class... Ts>
     overloaded(Ts...) -> overloaded<Ts...>;
 
+    template <class F, class T,
+        class = std::void_t<decltype(static_cast<T>(std::declval<F>()))>>
+    using static_castable = F;
+
+    // Concept to accept enum values
+    template <class F>
+    using index_castable = static_castable<F, size_t>;
+
 } // namespace detail
 
 // Tag to skip parameter
@@ -93,7 +101,7 @@ struct scaled_integer
         return val;
     }
 
-    std::string_view to_string(char* buf, size_t size)
+    std::string_view to_string(char* buf, size_t size) const
     {
         char* end = buf + size;
         // Reserve space for scale operation
@@ -118,7 +126,7 @@ struct scaled_integer
         throw fb::exception(std::make_error_code(ec).message());
     }
 
-    std::string to_string()
+    std::string to_string() const
     {
         char buf[64];
         return std::string(to_string(buf, sizeof(buf)));
@@ -148,7 +156,12 @@ using field_t = std::variant<
 // no need to check for nullptr_t.
 
 template <class T, class = void>
-struct type_converter;
+struct type_converter
+{
+    // All types convertible to T or itself (ex. std::string_view)
+    T operator()(T val) const noexcept
+    { return val; }
+};
 
 // T is integral type or floating point
 template <class T>
@@ -171,15 +184,6 @@ struct type_converter<T, std::enable_if_t<std::is_arithmetic_v<T>> >
     }
 };
 
-// T is std::string_view
-template <>
-struct type_converter<std::string_view>
-{
-    // Only string_view types can be returned as string_view
-    std::string_view operator()(std::string_view val) const noexcept
-    { return val; }
-};
-
 // T is std::string
 template <>
 struct type_converter<std::string>
@@ -190,7 +194,7 @@ struct type_converter<std::string>
 
     // float, double
     template <class U>
-    auto operator()(U val) const -> decltype(std::to_string(val))
+    auto operator()(U val) const noexcept -> decltype(std::to_string(val))
     { return std::to_string(val); }
 
     // scaled_integer

@@ -4,6 +4,7 @@
 
 #include <memory>
 #include <cstdlib>
+#include <cassert>
 #include <vector>
 
 namespace fb
@@ -48,26 +49,48 @@ struct sqlda
     void resize(size_t nr_cols) noexcept
     { _ptr = alloc(nr_cols); }
 
-    // Access by index (returning sqlvar)
-    sqlvar operator[](size_t pos) const
+    // Access by index (with check for out of range)
+    template <class T>
+    sqlvar at(detail::index_castable<T> pos) const 
     {
-        if (pos >= size())
-            throw fb::exception("index out of range, index ") << pos << " >= size " << size();
-        return sqlvar(&_ptr->sqlvar[pos]);
+        // We need static_cast here in case T is an enum
+        size_t index = static_cast<size_t>(pos);
+        if (index >= size())
+            throw fb::exception("index out of range, index ") << index << " >= size " << size();
+        return this->operator[](index);
     }
+
+    // Access by column name
+    sqlvar at(std::string_view pos) const
+    {
+        auto end = &_ptr->sqlvar[size()];
+        for (auto it = _ptr->sqlvar; it != end; ++it) {
+            sqlvar v(it);
+            if (v.name() == pos)
+                return v;
+        }
+        throw fb::exception() << std::quoted(pos) << " not found";
+    }
+
+    // Access by index (without check for out of range)
+    template <class T>
+    sqlvar operator[](detail::index_castable<T> pos) const noexcept
+    {
+        assert(static_cast<size_t>(pos) < size());
+        return sqlvar(&_ptr->sqlvar[static_cast<size_t>(pos)]);
+    }
+
+    // Access by column name
+    sqlvar operator[](std::string_view pos) const
+    { return at(pos); }
 
     // Allocate aligned space for incoming data
     void alloc_data() noexcept;
 
-    // Return tuple of given indexes
-    template <auto... I, std::enable_if_t<(std::is_integral_v<decltype(I)> && ...), int> = 0>
+    // Return tuple
+    template <auto... I>
     auto as_tuple() const noexcept
-    { return std::make_tuple(sqlvar(&_ptr->sqlvar[I])...); }
-
-    // Return tuple of enum values
-    template <auto... E, std::enable_if_t<(std::is_enum_v<decltype(E)> && ...), int> = 0>
-    auto as_tuple() const noexcept
-    { return as_tuple<static_cast<size_t>(E)...>(); }
+    { return std::make_tuple(this->operator[](I)...); }
 
     // Set input parameters.
     // Note! This creates a view to arguments and XSQLVARs
@@ -107,16 +130,15 @@ private:
     template <size_t>
     using field_index_t = field_t;
 
-    #if 0
     // Call callback with expanded column values
     template <class F, size_t... I>
-    auto visit(F&& cb, std::index_sequence<I...>) const -> decltype(std::visit(cb, field_index_t<I>()...))
-    { std::visit(std::forward<F>(cb), sqlvar(&_ptr->sqlvar[I]).get()...); }
+    auto visit(F&& cb, std::index_sequence<I...>) const
+        -> decltype(std::visit(cb, field_index_t<I>()...))
+    { std::visit(std::forward<F>(cb), sqlvar(&_ptr->sqlvar[I]).as_variant()...); }
 
     // Take care of callbacks with wrong number of arguments (nr args != nr cols)
     void visit(...) const
     { throw fb::exception("visit: wrong number of arguments"); }
-    #endif
 };
 
 
@@ -126,7 +148,7 @@ struct sqlda::iterator
     using pointer = value_type*;
     using reference = value_type&;
 
-    iterator(value_type::pointer var)
+    iterator(value_type::pointer var) noexcept
     : _var(var)
     { }
 
@@ -195,7 +217,7 @@ sqlda::set(const Args&... args)
             << size() << ", called with " << cnt << ")";
 
     auto it = begin();
-    //((it->set(args), ++it), ...);
+    ((it->set(args), ++it), ...);
 }
 
 

@@ -91,9 +91,9 @@ struct query::iterator
     using pointer = value_type*;
     using reference = value_type&;
 
-    iterator() = default;
+    iterator() noexcept = default;
 
-    iterator(query::context_t* ctx)
+    iterator(query::context_t* ctx) noexcept
     : _ctx(ctx)
     { }
 

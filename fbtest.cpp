@@ -8,6 +8,10 @@
 //std::ostream& operator<<(std::ostream& os, struct tm& t) { return os; }
 //std::ostream& operator<<(std::ostream& os, std::chrono::microseconds& t) { return os; }
 
+template <class T>
+std::ostream& operator<<(std::ostream& os, const fb::scaled_integer<T>& si)
+{ return os << si.to_string(); }
+
 
 //void print_params(fb::sqlda::ptr_t&& p)
 void print_params(XSQLDA* p)
@@ -39,61 +43,26 @@ void print_result(const fb::query& q)
         std::cout << std::endl;
     };
 
-    #if 1
-    //using tup_t = std::tuple<std::string_view, std::string_view, fb::timestamp_t>;
-    //using tup_t = std::tuple<short, std::string_view, fb::timestamp_t>;
-    //using tup_t = std::tuple<int, std::string_view, fb::timestamp_t>;
-    using tup_t = std::tuple<std::string, std::string_view, fb::timestamp_t>;
-    tup_t t;
-
-    for (auto& row : q) {
-        #if 1
-        auto [cno, cname, ts] = row.get<tup_t>();
-        #else
-        auto [cno, cname, ts] = row.get(t);
-        #endif
-
-        std::cout << "1: " << cno << std::endl;
-        std::cout << "2: " << cname << std::endl;
-        std::cout << "3: " << ts << std::endl;
-        std::cout << std::endl;
-
-        // TODO Test pointers
-        using tup_ptr_t = std::tuple<int*, std::string_view, fb::timestamp_t>;
-        auto [no_ptr, name_ptr, ts_ptr] = row.get<tup_ptr_t>();
-        std::cout << "ptr 1: " << *no_ptr << std::endl;
-    }
-    #else
-    #if 1
-    #if 1
     for (auto& row : q)
     {
         fb::timestamp_t ts = row[2];
         std::cout << "the timestamp for this row is: " << ts << std::endl;
 
         row.visit(cb);
-
-        // TODO try to implement structural bindings
-        //auto [v1, v2, v3] = row;
     }
-    #else
+
     for (auto it = q.begin(); it != q.end(); ++it)
     {
         it->visit(cb);
     }
-    #endif
-    #else
+
     q.foreach([](auto cno, auto cname, auto ts)
     {
         std::cout << "1: " << cno << std::endl;
         std::cout << "2: " << cname << std::endl;
         std::cout << "3: " << ts << std::endl;
         std::cout << std::endl;
-
-        //std::string t = ts.to_string();
     });
-    #endif
-    #endif
 }
 
 int main()
@@ -110,7 +79,6 @@ int main()
 #endif
 
     try {
-#if 1
         fb::database db("localhost/3053:employee");
         db.connect();
 
@@ -145,7 +113,6 @@ int main()
 
         // Execute (should be able to be rerun)
         q.execute("200", "Eng");
-        #endif
 
         //for (auto col : q.columns())
         //    std::cout << col.name() << ": " << col.size() << std::endl;

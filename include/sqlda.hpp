@@ -10,6 +10,7 @@
 
 namespace fb
 {
+
 // XSQLDA is a host-language data structure that DSQL uses to transport
 // data to or from a database when processing a SQL statement string.
 // See https://docwiki.embarcadero.com/InterBase/2020/en/XSQLDA_Field_Descriptions_(Embedded_SQL_Guide)
@@ -218,7 +219,7 @@ void sqlda::visit(F&& cb) const
         if constexpr(std::is_invocable_v<F, detail::index_type<I, sqlvar>...>)
             cb(sqlvar(&_ptr->sqlvar[I])...);
         else
-            throw fb::exception("visit: wrong number of arguments, expecting: ") << size();
+            throw fb::exception("visit: wrong number of arguments, expecting: ") << sizeof...(I);
     };
     // Max supported fields is 50
     bool fits_in = detail::to_const<50>(size(), [&visit_helper](auto I) {

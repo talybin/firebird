@@ -2,11 +2,13 @@
 #include "exception.hpp"
 #include "details.hpp"
 
+#include <ibase.h>
 #include <variant>
 #include <string_view>
 #include <ctime>
 #include <charconv>
 #include <iomanip>
+#include <limits>
 
 namespace fb
 {
@@ -47,6 +49,7 @@ struct timestamp_t : ISC_TIMESTAMP
     { return (timestamp_time / 10) % 1000; }
 };
 
+
 // SQL integer type
 template <class T>
 struct scaled_integer
@@ -60,12 +63,21 @@ struct scaled_integer
     { }
 
     template <class U = T>
-    U get() const noexcept
+    U get() const
     {
+        constexpr const U umax = std::numeric_limits<U>::max();
+        constexpr const U umin = std::numeric_limits<U>::min();
+
+        // Check if value fits in if type has downgraded
+        if constexpr(sizeof(U) < sizeof(T))
+            if (_value > umax || _value < umin) error<U>();
+
         U val = _value;
-    // TODO check overflow
-        for (auto x = 0; x < _scale; ++x)
+        for (auto x = 0; x < _scale; ++x) {
+            // Check for overflow
+            if (val > umax / 10 || val < umin / 10) error<U>();
             val *= 10;
+        }
         for (auto x = _scale; x < 0; ++x)
             val /= 10;
         return val;
@@ -75,8 +87,8 @@ struct scaled_integer
     {
         char* end = buf + size;
         // Reserve space for scale operation
-        if (_scale < 0) --end;
-        else if (_scale) end -= _scale;
+        if (_scale < 0) --end; // dot
+        else if (_scale) end -= _scale; // number of zeroes
 
         auto [it, ec] = std::to_chars(buf, end, _value);
         if (ec == std::errc()) {
@@ -101,7 +113,18 @@ struct scaled_integer
         char buf[64];
         return std::string(to_string(buf, sizeof(buf)));
     }
+
+private:
+    template <class U>
+    void error() const
+    {
+        throw fb::exception("scaled_integer of type \"")
+              << detail::type_name<T>()
+              << "\" and scale " << _scale << " do not fit into \""
+              << detail::type_name<U>() << "\" type";
+    }
 };
+
 
 // BLOB type
 using blob_id_t = ISC_QUAD;
@@ -118,6 +141,7 @@ using field_t = std::variant<
     timestamp_t,
     blob_id_t
 >;
+
 
 // Visitors with type conversion.
 // Where T is requested type and argument to call operator
@@ -172,6 +196,7 @@ struct type_converter<std::string>
     auto operator()(scaled_integer<U> val) const
     { return val.to_string(); }
 };
+
 
 // Tag to skip parameter
 struct skip_t { };

@@ -5,7 +5,6 @@
 #include <cstdlib>
 #include <stdexcept>
 
-
 namespace fb
 {
 
@@ -133,6 +132,7 @@ private:
         }, as_variant());
     }
 };
+
 
 // Get value variant (field_t) based on the type of SQL data
 field_t sqlvar::as_variant() const

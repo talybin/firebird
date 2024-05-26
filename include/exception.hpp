@@ -1,4 +1,5 @@
 #pragma once
+#include <ibase.h>
 #include <stdexcept>
 #include <sstream>
 

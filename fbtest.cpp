@@ -29,6 +29,8 @@ void print_params(XSQLDA* p)
 
 void print_result(const fb::query& q)
 {
+    using namespace std::literals;
+
     // Description is std::vector<std::string_view>
     std::cout << "columns: [";
     for (std::string_view col : q.column_names())
@@ -37,12 +39,13 @@ void print_result(const fb::query& q)
 
     auto cb = [](auto cno, auto cname, auto ts)
     {
-        std::cout << "1: " << cno << std::endl;
-        std::cout << "2: " << cname << std::endl;
+        std::cout << "1: " << cno.value_or("null"s) << std::endl;
+        std::cout << "2: " << cname.value_or("null"s) << std::endl;
         std::cout << "3: " << ts << std::endl;
         std::cout << std::endl;
     };
 
+#if 1
     for (auto& row : q)
     {
         fb::timestamp_t ts = row[2];
@@ -50,19 +53,23 @@ void print_result(const fb::query& q)
 
         row.visit(cb);
     }
+#endif
 
+#if 0
     for (auto it = q.begin(); it != q.end(); ++it)
-    {
         it->visit(cb);
-    }
+#endif
 
-    q.foreach([](auto cno, auto cname, auto ts)
-    {
-        std::cout << "1: " << cno << std::endl;
-        std::cout << "2: " << cname << std::endl;
-        std::cout << "3: " << ts << std::endl;
-        std::cout << std::endl;
+#if 0
+    std::cout << "--- testing foreach:" << std::endl;
+    q.foreach([](auto... args) {
+        //std::cout << "--- in foreach" << std::endl;
+        //((std::cout << args.name() << ": " << args.value_or("null"s) << std::endl), ...);
+        ((std::cout << args.name() << std::endl), ...);
+        std::cout << "---" << std::endl;
     });
+    std::cout << "----------------" << std::endl;
+#endif
 }
 
 int main()

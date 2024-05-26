@@ -212,18 +212,14 @@ sqlda::set(const Args&... args)
 template <class F>
 void sqlda::visit(F&& cb) const
 {
-    auto visit_helper = detail::overloaded {
-        // Testing here with decltype takes a long time to compile
-        [&]<size_t... I>(std::index_sequence<I...>)
-            -> decltype(std::visit(cb, (I, field_t())...))
-        {
-            std::visit(cb, sqlvar(&_ptr->sqlvar[I]).as_variant()...);
-        },
-        [this](...) {
+    auto visit_helper = [&]<size_t... I>(std::index_sequence<I...>)
+    {
+        // Testing this way in case F's arguments are optional or just "auto..."
+        if constexpr(std::is_invocable_v<F, detail::index_type<I, sqlvar>...>)
+            cb(sqlvar(&_ptr->sqlvar[I])...);
+        else
             throw fb::exception("visit: wrong number of arguments, expecting: ") << size();
-        }
     };
-
     // Max supported fields is 50
     bool fits_in = detail::to_const<50>(size(), [&visit_helper](auto I) {
         visit_helper(std::make_index_sequence<I>{});

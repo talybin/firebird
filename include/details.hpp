@@ -42,5 +42,27 @@ struct is_tuple<std::tuple<Args...>> : std::true_type { };
 template <class T>
 inline constexpr bool is_tuple_v = is_tuple<T>::value;
 
+
+// Use same type for any index (usable in iteration of index sequence)
+template <size_t N, class T>
+using index_type = T;
+
+
+#if 0 // Not used
+// Generate tuple implementation
+template <class, class>
+struct generate_impl;
+
+template <class T, size_t... I>
+struct generate_impl<T, std::index_sequence<I...>>
+{
+    using type = std::tuple<index_type<I, T>...>;
+};
+
+// Generate tuple of size N filled with type T
+template <class T, size_t N>
+using generate = typename generate_impl<T, std::make_index_sequence<N>>::type;
+#endif
+
 } // namespace fb::detail
 

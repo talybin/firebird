@@ -23,13 +23,13 @@ overloaded(Ts...) -> overloaded<Ts...>;
 
 
 // Extract run-time value as a compile-time constant
-template <class F, size_t... I>
-inline bool to_const(size_t value, F&& fn, std::index_sequence<I...>)
-{ return ((value == I && (fn(std::integral_constant<size_t, I>{}), true)) || ...); }
+template <class F, size_t... I, class... Args>
+inline bool to_const(size_t value, std::index_sequence<I...>, F&& fn, Args&&... args)
+{ return ((value == I && (fn(std::make_index_sequence<I>{}, std::forward<Args>(args)...), true)) || ...); }
 
-template <size_t N, class F>
-inline bool to_const(size_t value, F&& fn)
-{ return to_const(value, fn, std::make_index_sequence<N>{}); }
+template <size_t N, class F, class... Args>
+inline bool to_const(size_t value, F&& fn, Args&&... args)
+{ return to_const(value, std::make_index_sequence<N>{}, std::forward<F>(fn), std::forward<Args>(args)...); }
 
 
 // Detect std::tuple

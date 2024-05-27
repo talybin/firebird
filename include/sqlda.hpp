@@ -213,18 +213,18 @@ sqlda::set(const Args&... args)
 template <class F>
 void sqlda::visit(F&& cb) const
 {
-    auto visit_helper = [&]<size_t... I>(std::index_sequence<I...>)
-    {
-        // Testing this way in case F's arguments are optional or just "auto..."
-        if constexpr(std::is_invocable_v<F, detail::index_type<I, sqlvar>...>)
-            cb(sqlvar(&_ptr->sqlvar[I])...);
-        else
-            throw fb::exception("visit: wrong number of arguments, expecting: ") << sizeof...(I);
-    };
-    // Max supported fields is 50
-    bool fits_in = detail::to_const<50>(size(), [&visit_helper](auto I) {
-        visit_helper(std::make_index_sequence<I>{});
-    });
+    // Max supported fields is 49 (50: 0..49)
+    bool fits_in = detail::to_const(size(), std::make_index_sequence<50>{},
+        []<size_t... I>(std::index_sequence<I...>, F&& cb, sqlvar::pointer ptr)
+        {
+            // Testing this way in case F's arguments are optional or just "auto..."
+            if constexpr(std::is_invocable_v<F, detail::index_type<I, sqlvar>...>)
+                cb(sqlvar(&ptr[I])...);
+            else
+                throw fb::exception("visit: wrong number of arguments, expecting: ") << sizeof...(I);
+        },
+        std::forward<F>(cb), _ptr->sqlvar
+    );
     if (!fits_in)
         throw fb::exception("visit: not enough supported fields");
 }

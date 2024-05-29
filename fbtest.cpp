@@ -43,6 +43,7 @@ void print_result(const fb::query& q)
         std::cout << "2: " << cname.value_or("null"s) << std::endl;
         std::cout << "3: " << ts << std::endl;
         std::cout << std::endl;
+        return 42;
     };
 
 #if 1
@@ -51,7 +52,8 @@ void print_result(const fb::query& q)
         fb::timestamp_t ts = row[2];
         std::cout << "the timestamp for this row is: " << ts << std::endl;
 
-        row.visit(cb);
+        auto ret = row.visit(cb);
+        std::cout << "got return: " << ret << std::endl;
     }
 #endif
 

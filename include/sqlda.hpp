@@ -106,9 +106,11 @@ struct sqlda
     void set() noexcept { }
 
     // Visit columns/params where
-    // F is visitor accepting types of field_t
+    // F is visitor accepting sqlvar as argument(s).
+    // Note, max supported fields is 49 (50: 0..49)
     template <class F>
-    void visit(F&& cb) const;
+    constexpr decltype(auto)
+    visit(F&& cb) const;
 
 private:
     ptr_t _ptr;
@@ -208,28 +210,6 @@ sqlda::set(const Args&... args)
 }
 
 
-// Visit columns/params where
-// F is visitor accepting types of field_t
-template <class F>
-void sqlda::visit(F&& cb) const
-{
-    // Max supported fields is 49 (50: 0..49)
-    bool fits_in = detail::to_const(size(), std::make_index_sequence<50>{},
-        []<size_t... I>(std::index_sequence<I...>, F&& cb, sqlvar::pointer ptr)
-        {
-            // Testing this way in case F's arguments are optional or just "auto..."
-            if constexpr(std::is_invocable_v<F, detail::index_type<I, sqlvar>...>)
-                cb(sqlvar(&ptr[I])...);
-            else
-                throw fb::exception("visit: wrong number of arguments, expecting: ") << sizeof...(I);
-        },
-        std::forward<F>(cb), _ptr->sqlvar
-    );
-    if (!fits_in)
-        throw fb::exception("visit: not enough supported fields");
-}
-
-
 // Allocate aligned space for incoming data
 void sqlda::alloc_data() noexcept
 {
@@ -263,6 +243,62 @@ void sqlda::alloc_data() noexcept
         p->sqldata = buf + (size_t)p->sqldata;
         p->sqlind = (short*)(buf + (size_t)p->sqlind);
     }
+}
+
+
+namespace detail
+{
+
+template <class F, class>
+struct visitor_impl;
+
+template <class F, size_t... I>
+struct visitor_impl<F, std::index_sequence<I...>>
+{
+    using ret_type = detected_t< std::invoke_result_t, F, index_type<I, sqlvar>... >;
+
+    template <class R>
+    static constexpr R
+    visit(F&& f, sqlvar::pointer ptr)
+    {
+        if constexpr(std::is_invocable_v<F, index_type<I, sqlvar>...>)
+            return std::forward<F>(f)(sqlvar(&ptr[I])...);
+        else
+            throw fb::exception("wrong number of arguments: ") << sizeof...(I);
+    }
+};
+
+template <class F, size_t N>
+using visitor = visitor_impl<F, std::make_index_sequence<N>>;
+
+} // namespace detail
+
+
+// Visit columns/params
+template <class F>
+constexpr decltype(auto)
+sqlda::visit(F&& cb) const
+{
+    // Max supported fields is 50
+    constexpr const size_t max_fields = 50;
+
+    return []<size_t... I>(
+        size_t index, F&& f, sqlvar::pointer ptr, std::index_sequence<I...>)
+        -> decltype(auto)
+    {
+        using R = std::common_type_t< typename detail::visitor<F, I>::ret_type... >;
+        static_assert(
+            !std::is_same_v<R, detail::any_type>,
+            "too many fields to visit");
+
+        constexpr R (*vtable[])(F&&, sqlvar::pointer) = {
+            &detail::visitor<F, I>::template visit<R>...
+        };
+        return vtable[index](std::forward<F>(f), ptr);
+    }
+    (size(), std::forward<F>(cb), _ptr->sqlvar,
+        // Including zero arguments
+        std::make_index_sequence<max_fields + 1>{});
 }
 
 } // namespace fb

@@ -22,14 +22,39 @@ template <class... Ts>
 overloaded(Ts...) -> overloaded<Ts...>;
 
 
-// Extract run-time value as a compile-time constant
-template <class F, size_t... I, class... Args>
-inline bool to_const(size_t value, std::index_sequence<I...>, F&& fn, Args&&... args)
-{ return ((value == I && (fn(std::make_index_sequence<I>{}, std::forward<Args>(args)...), true)) || ...); }
+// Convertor to any type
+struct any_type
+{
+    template <class T>
+    constexpr operator T(); // non explicit
+};
 
-template <size_t N, class F, class... Args>
-inline bool to_const(size_t value, F&& fn, Args&&... args)
-{ return to_const(value, std::make_index_sequence<N>{}, std::forward<F>(fn), std::forward<Args>(args)...); }
+
+// Experimental traits from std TS
+// https://en.cppreference.com/w/cpp/experimental/is_detected
+
+template<class Default, class AlwaysVoid, template<class...> class Op, class... Args>
+struct detector
+{
+    using value_t = std::false_type;
+    using type = Default;
+};
+
+template<class Default, template<class...> class Op, class... Args>
+struct detector<Default, std::void_t<Op<Args...>>, Op, Args...>
+{
+    using value_t = std::true_type;
+    using type = Op<Args...>;
+};
+
+template<template<class...> class Op, class... Args>
+using is_detected = typename detector<any_type, void, Op, Args...>::value_t;
+
+template<template<class...> class Op, class... Args>
+using detected_t = typename detector<any_type, void, Op, Args...>::type;
+
+template<class Default, template<class...> class Op, class... Args>
+using detected_or = detector<Default, void, Op, Args...>;
 
 
 // Detect std::tuple
@@ -46,23 +71,6 @@ inline constexpr bool is_tuple_v = is_tuple<T>::value;
 // Use same type for any index (usable in iteration of index sequence)
 template <size_t N, class T>
 using index_type = T;
-
-
-#if 0 // Not used
-// Generate tuple implementation
-template <class, class>
-struct generate_impl;
-
-template <class T, size_t... I>
-struct generate_impl<T, std::index_sequence<I...>>
-{
-    using type = std::tuple<index_type<I, T>...>;
-};
-
-// Generate tuple of size N filled with type T
-template <class T, size_t N>
-using generate = typename generate_impl<T, std::make_index_sequence<N>>::type;
-#endif
 
 } // namespace fb::detail
 

@@ -124,10 +124,10 @@ private:
     template <class T>
     T visit() const
     {
-        return std::visit(detail::overloaded {
+        return std::visit(overloaded {
             type_converter<T>{},
             [](...) -> T {
-                throw fb::exception("can't convert to type ") << detail::type_name<T>();
+                throw fb::exception("can't convert to type ") << type_name<T>();
             }
         }, as_variant());
     }

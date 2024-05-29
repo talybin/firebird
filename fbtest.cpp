@@ -54,6 +54,18 @@ void print_result(const fb::query& q)
 
         auto ret = row.visit(cb);
         std::cout << "got return: " << ret << std::endl;
+
+        // Visit first 2 of 3 columns
+        row.visit<2>([&row](auto... args) {
+            std::cout << "in visit(auto...): nr args: "
+                      << sizeof...(args)
+                      << " of " << row.size()
+                      << std::endl;
+        });
+
+        // This don't work (different return types)...
+        //auto tup = row.visit(std::make_tuple);
+        //auto tup = row.visit([](auto... args) { return std::make_tuple(args...); });
     }
 #endif
 

@@ -1,6 +1,6 @@
 #pragma once
 #include "exception.hpp"
-#include "details.hpp"
+#include "traits.hpp"
 
 #include <ibase.h>
 #include <variant>
@@ -119,9 +119,9 @@ private:
     void error() const
     {
         throw fb::exception("scaled_integer of type \"")
-              << detail::type_name<T>()
+              << type_name<T>()
               << "\" and scale " << _scale << " do not fit into \""
-              << detail::type_name<U>() << "\" type";
+              << type_name<U>() << "\" type";
     }
 };
 
@@ -173,7 +173,7 @@ struct type_converter<T, std::enable_if_t<std::is_arithmetic_v<T>> >
         if (ec == std::errc())
             return ret;
         throw fb::exception("can't convert string \"") << val << "\" to "
-                            << detail::type_name<T>() << "("
+                            << type_name<T>() << "("
                             << std::make_error_code(ec).message() << ")";
     }
 };

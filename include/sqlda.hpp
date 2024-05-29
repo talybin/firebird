@@ -1,7 +1,6 @@
 #pragma once
 #include "sqlvar.hpp"
 #include "exception.hpp"
-#include "concepts.hpp"
 
 #include <memory>
 #include <cstdlib>
@@ -105,16 +104,23 @@ struct sqlda
     // Set without values, do nothing
     void set() noexcept { }
 
-    // Visit columns/params where
-    // F is visitor accepting sqlvar as argument(s).
-    // Note, max supported fields is 49 (50: 0..49)
-    template <class F>
+    // Visit columns
+    // where F is visitor accepting sqlvar as argument(s).
+    // If number of fields returning from database is
+    // greater than MAX_FIELDS, call visit with required
+    // number, e.g. visit<15>(...)
+    template <size_t MAX_FIELDS = 10, class F>
     constexpr decltype(auto)
     visit(F&& cb) const;
 
 private:
     ptr_t _ptr;
     data_buffer_t _data_buffer;
+
+    // Visit details
+    template <class F, class> struct visitor_impl;
+    template <class F, size_t N>
+    using visitor = visitor_impl<F, std::make_index_sequence<N>>;
 
     // Allocate buffer enough to hold given number of columns
     static ptr_t alloc(size_t nr_cols) noexcept
@@ -246,16 +252,13 @@ void sqlda::alloc_data() noexcept
 }
 
 
-namespace detail
-{
-
-template <class F, class>
-struct visitor_impl;
-
+// Visit details
 template <class F, size_t... I>
-struct visitor_impl<F, std::index_sequence<I...>>
+struct sqlda::visitor_impl<F, std::index_sequence<I...>>
 {
-    using ret_type = detected_t< std::invoke_result_t, F, index_type<I, sqlvar>... >;
+    using ret_type = detected_t<
+        std::invoke_result_t, F, index_type<I, sqlvar>...
+    >;
 
     template <class R>
     static constexpr R
@@ -268,37 +271,45 @@ struct visitor_impl<F, std::index_sequence<I...>>
     }
 };
 
-template <class F, size_t N>
-using visitor = visitor_impl<F, std::make_index_sequence<N>>;
 
-} // namespace detail
-
-
-// Visit columns/params
-template <class F>
+// Visit columns
+template <size_t MAX_FIELDS, class F>
 constexpr decltype(auto)
 sqlda::visit(F&& cb) const
 {
-    // Max supported fields is 50
-    constexpr const size_t max_fields = 50;
+    // Default return type of detected traits
+    using not_found = any_type;
 
     return []<size_t... I>(
         size_t index, F&& f, sqlvar::pointer ptr, std::index_sequence<I...>)
         -> decltype(auto)
     {
-        using R = std::common_type_t< typename detail::visitor<F, I>::ret_type... >;
-        static_assert(
-            !std::is_same_v<R, detail::any_type>,
-            "too many fields to visit");
+        // Get the return type of given callback function
+        using detected_ret = detected_or<
+            not_found,
+            std::common_type_t, typename sqlda::visitor<F, I>::ret_type...
+        >;
+        static_assert(typename detected_ret::value_t(),
+            "visit requires the visitor to have the same return type "
+            "for all number of arguments");
 
+        using R = typename detected_ret::type;
+        static_assert(
+            // Note, this does not detect variadic number of arguments
+            !std::is_same_v<R, not_found>,
+            "too many fields to visit, increase number of max_fields");
+
+        // Build a virtual function table
         constexpr R (*vtable[])(F&&, sqlvar::pointer) = {
-            &detail::visitor<F, I>::template visit<R>...
+            &sqlda::visitor<F, I>::template visit<R>...
         };
-        return vtable[index](std::forward<F>(f), ptr);
+        // Select the one that match number of fields (arguments)
+        // or less if index is out of range (call only first few)
+        return vtable[std::min(index, MAX_FIELDS)](std::forward<F>(f), ptr);
     }
     (size(), std::forward<F>(cb), _ptr->sqlvar,
-        // Including zero arguments
-        std::make_index_sequence<max_fields + 1>{});
+        // Including callback with zero arguments (sequence for 0..(MAX_FIELDS + 1))
+        std::make_index_sequence<MAX_FIELDS + 1>{});
 }
 
 } // namespace fb

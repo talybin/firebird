@@ -1,6 +1,7 @@
 #pragma once
+#include <type_traits>
 
-namespace fb::detail
+namespace fb
 {
 
 // Get type as string (reflection)
@@ -33,28 +34,32 @@ struct any_type
 // Experimental traits from std TS
 // https://en.cppreference.com/w/cpp/experimental/is_detected
 
-template<class Default, class AlwaysVoid, template<class...> class Op, class... Args>
-struct detector
+namespace detail
 {
-    using value_t = std::false_type;
-    using type = Default;
-};
+    template<class Default, class AlwaysVoid, template<class...> class Op, class... Args>
+    struct detector
+    {
+        using value_t = std::false_type;
+        using type = Default;
+    };
 
-template<class Default, template<class...> class Op, class... Args>
-struct detector<Default, std::void_t<Op<Args...>>, Op, Args...>
-{
-    using value_t = std::true_type;
-    using type = Op<Args...>;
-};
+    template<class Default, template<class...> class Op, class... Args>
+    struct detector<Default, std::void_t<Op<Args...>>, Op, Args...>
+    {
+        using value_t = std::true_type;
+        using type = Op<Args...>;
+    };
+
+} // namespace detail
 
 template<template<class...> class Op, class... Args>
-using is_detected = typename detector<any_type, void, Op, Args...>::value_t;
+using is_detected = typename detail::detector<any_type, void, Op, Args...>::value_t;
 
 template<template<class...> class Op, class... Args>
-using detected_t = typename detector<any_type, void, Op, Args...>::type;
+using detected_t = typename detail::detector<any_type, void, Op, Args...>::type;
 
 template<class Default, template<class...> class Op, class... Args>
-using detected_or = detector<Default, void, Op, Args...>;
+using detected_or = detail::detector<Default, void, Op, Args...>;
 
 
 // Detect std::tuple
@@ -72,5 +77,17 @@ inline constexpr bool is_tuple_v = is_tuple<T>::value;
 template <size_t N, class T>
 using index_type = T;
 
-} // namespace fb::detail
+
+// Concepts
+
+// Statically castable type
+template <class F, class T,
+    class = std::void_t<decltype(static_cast<T>(std::declval<F>()))>>
+using static_castable = F;
+
+// Concept to accept enum values
+template <class F>
+using index_castable = static_castable<F, size_t>;
+
+} // namespace fb
 

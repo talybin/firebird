@@ -1,4 +1,2 @@
 https://github.com/doctest/doctest/blob/master/doc/markdown/assertions.md
 
-g++ -I../include test_scaled_integer.cpp
-

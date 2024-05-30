@@ -65,17 +65,13 @@ struct scaled_integer
     template <class U = T>
     U get() const
     {
-        constexpr const U umax = std::numeric_limits<U>::max();
-        constexpr const U umin = std::numeric_limits<U>::min();
-
         // Check if value fits in if type has downgraded
-        if constexpr(sizeof(U) < sizeof(T))
-            if (_value > umax || _value < umin) error<U>();
+        static_assert(sizeof(U) >= sizeof(T),
+            "assign type may not fit the value, use bigger type");
 
         U val = _value;
         for (auto x = 0; x < _scale; ++x) {
-            // Check for overflow
-            if (val > umax / 10 || val < umin / 10) error<U>();
+            check_overflow(val);
             val *= 10;
         }
         for (auto x = _scale; x < 0; ++x)
@@ -116,12 +112,16 @@ struct scaled_integer
 
 private:
     template <class U>
-    void error() const
+    void check_overflow(U val) const
     {
-        throw fb::exception("scaled_integer of type \"")
-              << type_name<T>()
-              << "\" and scale " << _scale << " do not fit into \""
-              << type_name<U>() << "\" type";
+        constexpr const U umax = std::numeric_limits<U>::max() / 10;
+        constexpr const U umin = std::numeric_limits<U>::min() / 10;
+
+        if (val > umax || val < umin)
+            throw fb::exception("scaled_integer of type \"")
+                  << type_name<T>()
+                  << "\" and scale " << _scale << " do not fit into \""
+                  << type_name<U>() << "\" type";
     }
 };
 

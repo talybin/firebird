@@ -59,7 +59,7 @@ def build_intro():
 
     return intro.format(
         license = license,
-        time = datetime.datetime.utcnow())
+        time = datetime.datetime.now(datetime.UTC))
 
 
 def process_file(filename, out):

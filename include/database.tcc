@@ -1,4 +1,5 @@
 #pragma once
+
 // Database methods
 
 namespace fb
@@ -51,7 +52,7 @@ database::database(
     std::string_view path, std::string_view user, std::string_view passwd) noexcept
 : _context(std::make_shared<context_t>(path))
 {
-    _def_trans = std::make_shared<transaction>(*this);
+    _trans = std::make_shared<transaction>(*this);
 
     params& p = _context->_params;
     // Fill database parameter buffer
@@ -76,19 +77,19 @@ void database::disconnect() noexcept
 
 
 transaction& database::default_transaction() noexcept
-{ return *_def_trans.get(); }
+{ return *_trans; }
 
 
-isc_db_handle* database::handle() noexcept
+isc_db_handle* database::handle() const noexcept
 { return &_context->_handle; }
 
 
 void database::commit()
-{ _def_trans->commit(); }
+{ _trans->commit(); }
 
 
 void database::rollback()
-{ _def_trans->rollback(); }
+{ _trans->rollback(); }
 
 } // namespace fb
 

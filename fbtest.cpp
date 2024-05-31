@@ -1,9 +1,10 @@
 // fbtest.cpp : This file contains the 'main' function. Program execution begins and ends there.
 //
 
-#include <iostream>
 #include "firebird.hpp"
+//#include "streams.hpp"
 #include "debug.hpp"
+#include <iostream>
 
 //std::ostream& operator<<(std::ostream& os, struct tm& t) { return os; }
 //std::ostream& operator<<(std::ostream& os, std::chrono::microseconds& t) { return os; }
@@ -141,8 +142,25 @@ int main()
         print_result(q);
 
         // Try an non-select
-        fb::query(db, "delete from country where country = 'test'").execute();
+        {
+            fb::query(db, "delete from country where country = 'test'").execute();
+        }
 
+        // Read blob
+        {
+            std::cout << "-- blob:" << std::endl;
+            fb::query blob_test(db, "select first 1 * from project");
+            blob_test.execute();
+
+            std::cout << blob_test.fields() << std::endl;
+            for (auto& row : blob_test) {
+                //fb::blob pr_desc = row["PROJ_DESC"];
+                //std::cout << pr_desc << std::endl;
+                //std::cout << row["PROJ_DESC"] << std::endl;
+            }
+
+            std::cout << "--" << std::endl;
+        }
 #endif
     }
     catch (const std::exception& ex) {

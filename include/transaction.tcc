@@ -36,11 +36,11 @@ void transaction::rollback()
 { invoke_except(isc_rollback_transaction, &_context->_handle); }
 
 
-isc_tr_handle* transaction::handle() noexcept
+isc_tr_handle* transaction::handle() const noexcept
 { return &_context->_handle; }
 
 
-database transaction::db() noexcept
+database& transaction::db() const noexcept
 { return _context->_db; }
 
 } // namespace fb

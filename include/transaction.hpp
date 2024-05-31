@@ -19,10 +19,10 @@ struct transaction
     void rollback();
 
     // Internal pointer to isc_tr_handle
-    isc_tr_handle* handle() noexcept;
+    isc_tr_handle* handle() const noexcept;
 
     // Database for this transaction
-    database db() noexcept;
+    database& db() const noexcept;
 
 private:
     struct context_t;

@@ -55,12 +55,12 @@ struct database
     void rollback();
 
     // Raw handle
-    isc_db_handle* handle() noexcept;
+    isc_db_handle* handle() const noexcept;
 
 private:
     struct context_t;
     std::shared_ptr<context_t> _context;
-    std::shared_ptr<transaction> _def_trans;
+    std::shared_ptr<transaction> _trans;
 };
 
 } // namespace fb

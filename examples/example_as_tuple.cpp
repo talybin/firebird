@@ -1,5 +1,5 @@
-#include "firebird.hpp"
 #include <iostream>
+#include "firebird.hpp"
 
 // EMPLOYEE table
 enum class employee

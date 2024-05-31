@@ -65,18 +65,27 @@ struct scaled_integer
     template <class U = T>
     U get() const
     {
-        // Check if value fits in if type has downgraded
-        static_assert(sizeof(U) >= sizeof(T),
-            "assign type may not fit the value, use bigger type");
-
-        U val = _value;
-        for (auto x = 0; x < _scale; ++x) {
-            check_overflow(val);
-            val *= 10;
+        // Do not allow types that may not fit the value
+        if constexpr (sizeof(U) < sizeof(T)) {
+            // Not using static_assert here because std::variant
+            // will generate all posibilites of call to this
+            // method and it will false trigger
+            error<U>();
         }
-        for (auto x = _scale; x < 0; ++x)
-            val /= 10;
-        return val;
+        else {
+            constexpr const U umax = std::numeric_limits<U>::max() / 10;
+            constexpr const U umin = std::numeric_limits<U>::min() / 10;
+
+            U val = _value;
+            for (auto x = 0; x < _scale; ++x) {
+                // Check for overflow
+                if (val > umax || val < umin) error<U>();
+                val *= 10;
+            }
+            for (auto x = _scale; x < 0; ++x)
+                val /= 10;
+            return val;
+        }
     }
 
     std::string_view to_string(char* buf, size_t size) const
@@ -112,16 +121,12 @@ struct scaled_integer
 
 private:
     template <class U>
-    void check_overflow(U val) const
+    [[noreturn]] void error() const
     {
-        constexpr const U umax = std::numeric_limits<U>::max() / 10;
-        constexpr const U umin = std::numeric_limits<U>::min() / 10;
-
-        if (val > umax || val < umin)
-            throw fb::exception("scaled_integer of type \"")
-                  << type_name<T>()
-                  << "\" and scale " << _scale << " do not fit into \""
-                  << type_name<U>() << "\" type";
+        throw fb::exception("scaled_integer of type \"")
+              << type_name<T>()
+              << "\" and scale " << _scale << " do not fit into \""
+              << type_name<U>() << "\" type";
     }
 };
 

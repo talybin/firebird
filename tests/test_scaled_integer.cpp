@@ -42,6 +42,11 @@ TEST_CASE("testing overflow")
 
     // It should not throw on lower value in range
     CHECK_NOTHROW   (si(-32'768, -1).get<short>());
+
+    // It should always throw on lower type
+    CHECK_THROWS    (si(0, 0).get<char>());
+    CHECK_THROWS    (si(0, 1).get<char>());
+    CHECK_THROWS    (si(0, -1).get<char>());
 }
 
 

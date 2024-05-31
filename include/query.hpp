@@ -20,6 +20,10 @@ struct query
     // Input parameters
     sqlda& params();
 
+    // Output fields
+    const sqlda& fields() const noexcept
+    { return _context->_fields; }
+
     // Prepare query and buffer for receiving data
     void prepare();
 
@@ -45,7 +49,7 @@ struct query
 private:
     struct context_t
     {
-        context_t(transaction& tr, std::string_view sql)
+        context_t(transaction& tr, std::string_view sql) noexcept
         : _trans(tr)
         , _sql(sql)
         // Initially expect to receive 5 columns

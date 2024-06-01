@@ -149,11 +149,17 @@ int main()
         // Read blob
         {
             std::cout << "-- blob:" << std::endl;
-            fb::query blob_test(db, "select first 1 * from project");
-            blob_test.execute();
+            fb::query proj(db, "select first 1 * from project");
+            proj.execute();
 
-            std::cout << blob_test.fields() << std::endl;
-            for (auto& row : blob_test) {
+            std::cout << proj.fields() << std::endl;
+            for (auto& row : proj)
+            {
+                //fb::blob desc(proj);
+
+                fb::blob desc = proj.create_stream(row["PROJ_DESC"]);
+                std::cout << desc << std::endl;
+
                 //fb::blob pr_desc = row["PROJ_DESC"];
                 //std::cout << pr_desc << std::endl;
                 //std::cout << row["PROJ_DESC"] << std::endl;

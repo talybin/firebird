@@ -1,6 +1,7 @@
 #pragma once
 #include "database.hpp"
 #include "sqlda.hpp"
+#include "blob.hpp"
 
 namespace fb
 {
@@ -45,6 +46,9 @@ struct query
         for (; c->_is_data_available; c->fetch())
             c->_fields.visit(std::forward<F>(cb));
     }
+
+    blob create_stream(blob_id_t id) const noexcept
+    { return blob(_context->_trans, id); }
 
 private:
     struct context_t

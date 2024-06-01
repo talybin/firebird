@@ -17,11 +17,14 @@ inline int invoke_noexcept(F&& fn, Args&&... args) noexcept
 }
 
 template <class F, class... Args>
-inline void invoke_except_impl(std::string_view fn_name, F&& fn, Args&&... args)
+inline ISC_STATUS
+invoke_except_impl(std::string_view fn_name, F&& fn, Args&&... args)
 {
     ISC_STATUS_ARRAY st;
-    if (fn(st, std::forward<Args>(args)...))
+    ISC_STATUS ret = fn(st, std::forward<Args>(args)...);
+    if (st[0] == 1 && st[1])
         throw fb::exception(fn_name) << ": " << fb::to_string(st);
+    return ret;
 }
 
 #ifndef invoke_except

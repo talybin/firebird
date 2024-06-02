@@ -1,4 +1,5 @@
 #pragma once
+#include <vector>
 
 // Database methods
 
@@ -29,7 +30,6 @@ struct database::params
 
 struct database::context_t
 {
-    //context_t(database& parent, std::string_view path)
     context_t(std::string_view path) noexcept
     : _path(path)
     { }
@@ -52,8 +52,6 @@ database::database(
     std::string_view path, std::string_view user, std::string_view passwd) noexcept
 : _context(std::make_shared<context_t>(path))
 {
-    _trans = std::make_shared<transaction>(*this);
-
     params& p = _context->_params;
     // Fill database parameter buffer
     p.add(isc_dpb_version1);
@@ -76,20 +74,20 @@ void database::disconnect() noexcept
 { _context->disconnect(); }
 
 
-transaction& database::default_transaction() noexcept
-{ return *_trans; }
-
-
 isc_db_handle* database::handle() const noexcept
 { return &_context->_handle; }
 
 
+transaction& database::default_transaction() noexcept
+{ return _trans ? *_trans : _trans.emplace(*this); }
+
+
 void database::commit()
-{ _trans->commit(); }
+{ default_transaction().commit(); }
 
 
 void database::rollback()
-{ _trans->rollback(); }
+{ default_transaction().rollback(); }
 
 } // namespace fb
 

@@ -1,4 +1,6 @@
 #pragma once
+#include <ibase.h>
+#include <memory>
 
 namespace fb
 {

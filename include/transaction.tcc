@@ -1,4 +1,6 @@
 #pragma once
+#include "exception.hpp"
+
 // Transaction methods
 
 namespace fb

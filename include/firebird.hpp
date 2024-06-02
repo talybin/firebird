@@ -1,7 +1,7 @@
 #pragma once
-#include "database.hpp"
 #include "transaction.hpp"
-#include "database.tcc"
+#include "database.hpp"
 #include "transaction.tcc"
+#include "database.tcc"
 #include "query.hpp"
 

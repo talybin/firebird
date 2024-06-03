@@ -29,6 +29,12 @@ struct transaction
 private:
     struct context_t;
     std::shared_ptr<context_t> _context;
+
+    // Default transaction for database has
+    // special initialization because of
+    // cross referencing
+    friend struct database;
+    transaction() noexcept { };
 };
 
 } // namespace fb

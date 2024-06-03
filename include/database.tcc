@@ -51,8 +51,9 @@ struct database::context_t
 database::database(
     std::string_view path, std::string_view user, std::string_view passwd) noexcept
 : _context(std::make_shared<context_t>(path))
-, _trans(*this)
 {
+    _trans = *this;
+
     params& p = _context->_params;
     // Fill database parameter buffer
     p.add(isc_dpb_version1);

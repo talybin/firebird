@@ -1,7 +1,6 @@
 #pragma once
 #include <memory>
 #include <string_view>
-#include <optional>
 
 namespace fb
 {
@@ -12,8 +11,10 @@ struct database
     struct params;
 
     // Constructor
-    database(std::string_view path,
-        std::string_view user = "sysdba", std::string_view passwd = "masterkey") noexcept;
+    database(
+        std::string_view path,
+        std::string_view user = "sysdba",
+        std::string_view passwd = "masterkey") noexcept;
 
     // Connect. Throw exeption on error.
     void connect();
@@ -34,7 +35,7 @@ struct database
 private:
     struct context_t;
     std::shared_ptr<context_t> _context;
-    std::optional<transaction> _trans;
+    transaction _trans;
 };
 
 } // namespace fb

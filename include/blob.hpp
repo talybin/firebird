@@ -16,9 +16,8 @@ struct blob
     { }
 
     // Get chunk of data.
-    // Return number of bytes read and true if it was last chunk.
-    std::pair<uint16_t, bool>
-    get_segment(char* buf, uint16_t buf_length) const
+    // Return number of bytes actually read (0 if no more data available).
+    uint16_t read(char* buf, uint16_t buf_length) const
     {
         ISC_STATUS_ARRAY status;
         uint16_t nr_read = 0;
@@ -26,19 +25,27 @@ struct blob
         ISC_STATUS get_status = isc_get_segment(
             status, &_context->_handle, &nr_read, buf_length, buf);
 
-        // isc_segstr_eof is not actually an error
-        if (get_status == isc_segstr_eof)
-            return { nr_read, true };
-        // Throw on error
-        if (status[0] == 1 && status[1])
-            throw fb::exception(status);
+        // TODO should we close the stream on isc_segstr_eof?
 
-        return { nr_read, false };
+        // isc_segstr_eof is not actually an error
+        if (get_status == 0 || get_status == isc_segstr_eof)
+            return nr_read;
+
+        throw fb::exception(status);
     }
 
 private:
+    #if 0
+    static void check_error(const ISC_STATUS* status)
+    {
+        if (status[0] == 1 && status[1])
+            throw fb::exception(status);
+    }
+    #endif
+
     struct context_t
     {
+        // Read constructor
         context_t(transaction& tr, blob_id_t id) noexcept
         : _id(id)
         {
@@ -46,6 +53,8 @@ private:
             invoke_except(isc_open_blob2,
                 tr.db().handle(), tr.handle(), &_handle, &id, 0, nullptr);
         }
+
+        // TODO write constructor
 
         ~context_t() noexcept
         { close(); }
@@ -66,13 +75,8 @@ inline std::ostream& operator<<(std::ostream& os, const fb::blob& b)
 {
     // Recommended size for segment is 80
     char buf[80];
-    for (;;) {
-        auto [len, is_last] = b.get_segment(buf, sizeof(buf));
-        if (len)
-            os << std::string_view(buf, len);
-        if (is_last)
-            break;
-    }
+    for (uint16_t len; (len = b.read(buf, sizeof(buf)));)
+        os << std::string_view(buf, len);
     return os;
 }
 

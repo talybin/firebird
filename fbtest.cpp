@@ -1,10 +1,10 @@
 // fbtest.cpp : This file contains the 'main' function. Program execution begins and ends there.
 //
 
+#include <iostream>
 #include "firebird.hpp"
 //#include "streams.hpp"
 #include "debug.hpp"
-#include <iostream>
 
 //std::ostream& operator<<(std::ostream& os, struct tm& t) { return os; }
 //std::ostream& operator<<(std::ostream& os, std::chrono::microseconds& t) { return os; }
@@ -143,6 +143,7 @@ int main()
 
         // Try an non-select
         {
+            std::cout << "trying delete..." << std::endl;
             fb::query(db, "delete from country where country = 'test'").execute();
         }
 
@@ -155,14 +156,11 @@ int main()
             std::cout << proj.fields() << std::endl;
             for (auto& row : proj)
             {
-                //fb::blob desc(proj);
-
-                fb::blob desc = proj.create_stream(row["PROJ_DESC"]);
+                fb::blob desc(db, row["PROJ_DESC"]);
                 std::cout << desc << std::endl;
 
-                //fb::blob pr_desc = row["PROJ_DESC"];
-                //std::cout << pr_desc << std::endl;
-                //std::cout << row["PROJ_DESC"] << std::endl;
+                std::cout << fb::blob(db, row["PROJ_DESC"]) << std::endl;
+                //std::cout << desc << std::endl;
             }
 
             std::cout << "--" << std::endl;

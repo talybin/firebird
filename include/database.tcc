@@ -51,6 +51,7 @@ struct database::context_t
 database::database(
     std::string_view path, std::string_view user, std::string_view passwd) noexcept
 : _context(std::make_shared<context_t>(path))
+, _trans(*this)
 {
     params& p = _context->_params;
     // Fill database parameter buffer
@@ -79,15 +80,15 @@ isc_db_handle* database::handle() const noexcept
 
 
 transaction& database::default_transaction() noexcept
-{ return _trans ? *_trans : _trans.emplace(*this); }
+{ return _trans; }
 
 
 void database::commit()
-{ default_transaction().commit(); }
+{ _trans.commit(); }
 
 
 void database::rollback()
-{ default_transaction().rollback(); }
+{ _trans.rollback(); }
 
 } // namespace fb
 

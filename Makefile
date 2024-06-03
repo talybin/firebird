@@ -23,6 +23,9 @@ examples::
 fbtest: ${HDR_FILES} fbtest.cpp
 	$(CXX) -I${INC_DIR} $@.cpp -o $@ -lfbclient
 
+debug: ${HDR_FILES} fbtest.cpp
+	$(CXX) -ggdb -I${INC_DIR} fbtest.cpp -o fbtest -lfbclient
+
 clean:
 	$(RM) -r single fbtest a.out
 	cd ${TEST_DIR} && $(MAKE) clean

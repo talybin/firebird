@@ -18,8 +18,11 @@ struct query
     : query(db.default_transaction(), sql)
     { }
 
-    // Input parameters
-    sqlda& params();
+    // Input parameters.
+    // For the first use of this method, query will try to
+    // detect number of parameters needed. If you know how
+    // many parameters required you can hint the size.
+    sqlda& params(size_t hint_size = 1);
 
     // Output fields
     const sqlda& fields() const noexcept
@@ -147,7 +150,7 @@ query::iterator query::end() const noexcept
 { return {}; }
 
 
-sqlda& query::params()
+sqlda& query::params(size_t hint_size)
 {
     context_t* c = _context.get();
 
@@ -157,7 +160,7 @@ sqlda& query::params()
         // First we need to call prepare and allocate atleast
         // one parameter to get the rest
         prepare();
-        c->_params.resize(1);
+        c->_params.resize(std::max(hint_size, size_t(1)));
 
         // Prepare input parameters
         invoke_except(isc_dsql_describe_bind, &c->_handle, SQL_DIALECT_V6, c->_params);
@@ -214,7 +217,8 @@ query& query::execute(const Args&... args)
     prepare();
 
     // Apply input parameters (if any)
-    c->_params.set(args...);
+    if constexpr (sizeof...(Args) > 0)
+        params(sizeof...(Args)).set(args...);
 
     // Execute
     invoke_except(isc_dsql_execute,

@@ -52,6 +52,9 @@ struct sqlvar
     void set(const timestamp_t& val) noexcept
     { set(SQL_TIMESTAMP, &val, sizeof(timestamp_t)); }
 
+    void set(const blob_id_t& val) noexcept
+    { set(SQL_BLOB, &val, sizeof(blob_id_t)); }
+
     void set(std::nullptr_t) noexcept
     { _ptr->sqltype = SQL_NULL; }
 

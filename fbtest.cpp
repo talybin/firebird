@@ -112,34 +112,36 @@ int main()
         // Execute (should be able to be rerun)
         q.execute();
         #else
-        fb::query q(db,
-            "select first 3 emp_no, last_name, hire_date "
-            "from employee "
-            "where phone_ext > ? and job_code = ?"
-        );
+        {
+            fb::query q(db,
+                "select first 3 emp_no, last_name, hire_date "
+                "from employee "
+                "where phone_ext > ? and job_code = ?"
+            );
 
-        //int x = 200;
-        //auto str = "Eng"sv;
+            //int x = 200;
+            //auto str = "Eng"sv;
 
-        auto& p = q.params();
-        p[0] = 200;
-        //p[0] = x;
+            auto& p = q.params();
+            p[0] = 200;
+            //p[0] = x;
 
-        int val = p[0];
-        std::cout << "got value back: " << val << std::endl;
+            int val = p[0];
+            std::cout << "got value back: " << val << std::endl;
 
-        q.execute(fb::skip, "Eng");
-        //q.execute(fb::skip, str);
+            q.execute(fb::skip, "Eng");
+            //q.execute(fb::skip, str);
 
-        print_result(q);
+            print_result(q);
 
-        // Execute (should be able to be rerun)
-        q.execute("200", "Eng");
+            // Execute (should be able to be rerun)
+            q.execute("200", "Eng");
 
-        //for (auto col : q.columns())
-        //    std::cout << col.name() << ": " << col.size() << std::endl;
+            //for (auto col : q.columns())
+            //    std::cout << col.name() << ": " << col.size() << std::endl;
 
-        print_result(q);
+            print_result(q);
+        }
 
         // Try an non-select
         {
@@ -165,6 +167,41 @@ int main()
 
             std::cout << "--" << std::endl;
         }
+
+        // Write blob
+        {
+            fb::query proj(db,
+                "update or insert into project "
+                "(proj_id, proj_name, proj_desc) "
+                "values (?, ?, ?)");
+
+            proj.execute("GUIDE", "FB lib test",
+                "This is a description\nseparated by a next line");
+
+            #if 0
+            proj.execute("GUIDE", "FB lib test2",
+                fb::blob(db).set("This is a second description\nAgain separated by a next line")
+            );
+            #endif
+
+            db.commit();
+        }
+
+        // Create blob
+        {
+            fb::query proj(db,
+                "insert into project "
+                "(proj_id, proj_name, proj_desc) "
+                "values ('FBTST', ?, ?)");
+
+            // TODO not working, invalid transaction handle (expecting explicit transaction start)
+            proj.execute("FB lib test2",
+                fb::blob(db).set("This is a second description\nAgain separated by a next line")
+            );
+
+            db.commit();
+        }
+
 #endif
     }
     catch (const std::exception& ex) {

@@ -1,5 +1,6 @@
 #pragma once
 #include "exception.hpp"
+#include "sqlda.hpp"
 
 // Transaction methods
 
@@ -44,6 +45,27 @@ isc_tr_handle* transaction::handle() const noexcept
 
 database& transaction::db() const noexcept
 { return _context->_db; }
+
+
+template <class... Args>
+void transaction::execute_immediate(std::string_view sql, const Args&... args)
+{
+    constexpr size_t nr_params = sizeof...(Args);
+
+    // Start transaction if not already
+    start();
+
+    // Set parameters (if any)
+    sqlda params;
+    if constexpr (nr_params > 0) {
+        params.resize(nr_params);
+        params.set(args...);
+    }
+
+    // Execute
+    invoke_except(isc_dsql_execute_immediate, _context->_db.handle(),
+        &_context->_handle, 0, sql.data(), SQL_DIALECT_V6, params.get());
+}
 
 } // namespace fb
 

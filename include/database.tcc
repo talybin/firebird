@@ -30,6 +30,10 @@ struct database::params
 
 struct database::context_t
 {
+    context_t(isc_db_handle h) noexcept
+    : _handle(h)
+    { }
+
     context_t(std::string_view path) noexcept
     : _path(path)
     { }
@@ -62,6 +66,13 @@ database::database(
 }
 
 
+database::database(isc_db_handle h) noexcept
+: _context(std::make_shared<context_t>(h))
+{
+    _trans = *this;
+}
+
+
 void database::connect()
 {
     context_t* c = _context.get();
@@ -74,6 +85,28 @@ void database::connect()
 
 void database::disconnect() noexcept
 { _context->disconnect(); }
+
+
+template <class... Args>
+void database::execute_immediate(std::string_view sql, const Args&... params)
+{ _trans.execute_immediate(sql, params...); }
+
+
+database database::create(std::string_view sql)
+{
+    isc_db_handle db_handle = 0;
+    isc_tr_handle tr_handle = 0;
+
+    // In the special case where the statement is CREATE DATABASE, there
+    // is no transaction, so db_handle and trans_handle must be pointers
+    // to handles whose value is NULL. When isc_dsql_execute_immediate()
+    // returns, db_handle is a valid handle, just as though you had made
+    // a call to isc_attach_database()
+    invoke_except(isc_dsql_execute_immediate,
+        &db_handle, &tr_handle, 0, sql.data(), SQL_DIALECT_V6, nullptr);
+
+    return db_handle;
+}
 
 
 isc_db_handle* database::handle() const noexcept

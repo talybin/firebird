@@ -35,19 +35,7 @@ struct query
     template <class... Args>
     query& execute(const Args&... args);
 
-    // execute_immediate prepares the DSQL statement,
-    // executes it once, and discards it. The statement must
-    // not be one that returns data (that is, it must not be
-    // a SELECT or EXECUTE PROCEDURE statement).
-    // TODO:
-    // Note: In the special case where the statement is CREATE DATABASE,
-    // there is no transaction, so db_handle and trans_handle must be
-    // pointers to handles whose value is NULL. When isc_dsql_execute_immediate()
-    // returns, db_handle is a valid handle, just as though you had made
-    // a call to isc_attach_database().
-    template <class... Args>
-    void execute_immediate(const Args&... args);
-
+    // Row iterators
     iterator begin() const noexcept;
     iterator end() const noexcept;
 
@@ -170,12 +158,12 @@ sqlda& query::params(size_t hint_size)
         // First we need to call prepare and allocate atleast
         // one parameter to get the rest
         prepare();
-        c->_params.resize(std::max(hint_size, size_t(1)));
+        c->_params.reserve(std::max(hint_size, size_t(1)));
 
         // Prepare input parameters
         invoke_except(isc_dsql_describe_bind, &c->_handle, SQL_DIALECT_V6, c->_params);
         if (c->_params.capacity() < c->_params.size()) {
-            c->_params.resize(c->_params.size());
+            c->_params.reserve(c->_params.size());
             // Reread prepared description
             invoke_except(isc_dsql_describe_bind, &c->_handle, SQL_DIALECT_V6, c->_params);
         }
@@ -204,7 +192,7 @@ void query::prepare()
 
     // Prepare output fields
     if (c->_fields.capacity() < c->_fields.size()) {
-        c->_fields.resize(c->_fields.size());
+        c->_fields.reserve(c->_fields.size());
         // Reread prepared description
         invoke_except(isc_dsql_describe, &c->_handle, SQL_DIALECT_V6, c->_fields);
     }
@@ -241,25 +229,6 @@ query& query::execute(const Args&... args)
         c->fetch();
 
     return *this;
-}
-
-
-template <class... Args>
-void query::execute_immediate(const Args&... args)
-{
-    context_t* c = _context.get();
-
-    // Start transaction if not already
-    c->_trans.start();
-
-    // Apply input parameters (if any)
-    if constexpr (sizeof...(Args) > 0)
-        params(sizeof...(Args)).set(args...);
-
-    // Execute
-    invoke_except(isc_dsql_execute_immediate,
-        c->_trans.db().handle(), c->_trans.handle(),
-        0, c->_sql.c_str(), SQL_DIALECT_V6, c->_params);
 }
 
 

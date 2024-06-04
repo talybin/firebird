@@ -43,12 +43,22 @@ struct sqlda
     size_t size() const noexcept
     { return _ptr ? _ptr->sqld : 0; }
 
+    // Changes the number of columns stored
+    void resize(size_t nr_cols) noexcept
+    {
+        assert(nr_cols > 0);
+        if (nr_cols > capacity())
+            reserve(nr_cols);
+        if (_ptr)
+            _ptr->sqld = nr_cols;
+    }
+
     // Number of columns allocated
     size_t capacity() const noexcept
     { return _ptr ? _ptr->sqln : 0; }
 
-    // Resize to given number of columns/params
-    void resize(size_t nr_cols) noexcept
+    // Resize capacity to given number of columns
+    void reserve(size_t nr_cols) noexcept
     { _ptr = alloc(nr_cols); }
 
     // Access by index (with check for out of range)

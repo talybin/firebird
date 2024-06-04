@@ -191,28 +191,31 @@ int main()
         // Create blob
         {
             std::cout << "delete before insert..." << std::endl;
-            fb::query(db, "delete from project where proj_id = 'NEWFB'").execute_immediate();
+            db.execute_immediate(
+                "delete from project where proj_id = ?", "NEWFB");
 
+            #if 1
             std::cout << "insert new blob..." << std::endl;
             fb::query proj(db,
                 "insert into project "
                 "(proj_id, proj_name, proj_desc) "
                 "values ('NEWFB', ?, ?)");
 
-            #if 1
             proj.execute("FB lib test3",
                 fb::blob(db).set("This is a second description\nAgain separated by a next line")
             );
-            #else
-            fb::blob data(db);
-            data.set("This is a second description\nAgain separated by a next line");
-            proj.execute("FB lib test2", data);
-            //auto id = data.id();
-            //proj.execute("FB lib test2", id);
             #endif
 
             db.commit();
         }
+
+        #if 0
+        std::cout << "create new database..." << std::endl;
+        auto new_db = fb::database::create(
+            "CREATE DATABASE 'localhost/3053:/firebird/data/mydb.ib' "
+            "USER 'SYSDBA' PASSWORD 'masterkey' "
+            "PAGE_SIZE 8192 DEFAULT CHARACTER SET UTF8 ");
+        #endif
 
 #endif
     }

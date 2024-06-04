@@ -1,6 +1,7 @@
 #pragma once
 #include <ibase.h>
 #include <memory>
+#include <string_view>
 
 namespace fb
 {
@@ -23,6 +24,13 @@ struct transaction
 
     // Cancel pending queries
     void rollback();
+
+    // execute_immediate prepares the DSQL statement, executes
+    // it once, and discards it. The statement must not be one
+    // that returns data (that is, it must not be a SELECT or
+    // EXECUTE PROCEDURE statement, use fb::query for this).
+    template <class... Args>
+    void execute_immediate(std::string_view sql, const Args&... params);
 
     // Internal pointer to isc_tr_handle
     isc_tr_handle* handle() const noexcept;

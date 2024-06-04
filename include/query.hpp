@@ -35,6 +35,19 @@ struct query
     template <class... Args>
     query& execute(const Args&... args);
 
+    // execute_immediate prepares the DSQL statement,
+    // executes it once, and discards it. The statement must
+    // not be one that returns data (that is, it must not be
+    // a SELECT or EXECUTE PROCEDURE statement).
+    // TODO:
+    // Note: In the special case where the statement is CREATE DATABASE,
+    // there is no transaction, so db_handle and trans_handle must be
+    // pointers to handles whose value is NULL. When isc_dsql_execute_immediate()
+    // returns, db_handle is a valid handle, just as though you had made
+    // a call to isc_attach_database().
+    template <class... Args>
+    void execute_immediate(const Args&... args);
+
     iterator begin() const noexcept;
     iterator end() const noexcept;
 
@@ -49,9 +62,6 @@ struct query
         for (; c->_is_data_available; c->fetch())
             c->_fields.visit(std::forward<F>(cb));
     }
-
-    blob create_stream(blob_id_t id) const noexcept
-    { return blob(_context->_trans, id); }
 
 private:
     struct context_t
@@ -231,6 +241,25 @@ query& query::execute(const Args&... args)
         c->fetch();
 
     return *this;
+}
+
+
+template <class... Args>
+void query::execute_immediate(const Args&... args)
+{
+    context_t* c = _context.get();
+
+    // Start transaction if not already
+    c->_trans.start();
+
+    // Apply input parameters (if any)
+    if constexpr (sizeof...(Args) > 0)
+        params(sizeof...(Args)).set(args...);
+
+    // Execute
+    invoke_except(isc_dsql_execute_immediate,
+        c->_trans.db().handle(), c->_trans.handle(),
+        0, c->_sql.c_str(), SQL_DIALECT_V6, c->_params);
 }
 
 

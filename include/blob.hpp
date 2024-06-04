@@ -30,7 +30,7 @@ struct blob
     { }
 
     // Get stored blob id
-    blob_id_t id() const noexcept
+    blob_id_t& id() const noexcept
     { return _context->_id; }
 
     // Get raw handle
@@ -38,12 +38,16 @@ struct blob
     { return _context->_handle; }
 
     // Convert to blob_id_t
-    operator blob_id_t() const noexcept
+    operator blob_id_t&() const noexcept
     { return _context->_id; }
 
     // Set blob to a string
     blob& set(std::string_view str)
-    { return (write_chunk(str.data(), str.size()), *this); }
+    {
+        write_chunk(str.data(), str.size());
+        close();
+        return *this;
+    }
 
     // Get chunk of data.
     // Return number of bytes actually read (0 if no more data available).
@@ -52,24 +56,28 @@ struct blob
     // Write chunk of data
     void write_chunk(const char* buf, uint16_t buf_length);
 
+    // The blob must be closed after last chunk has been written
+    void close() noexcept
+    { _context->close(); }
+
 private:
     struct context_t
     {
         // Create constructor
         context_t(transaction& tr)
         {
-            // Blob Parameter Buffer (BPB) not supported yet
-            invoke_except(isc_create_blob2,
-                tr.db().handle(), tr.handle(), &_handle, &_id, 0, nullptr);
+            // Start transaction if not already
+            tr.start();
+            invoke_except(isc_create_blob,
+                tr.db().handle(), tr.handle(), &_handle, &_id);
         }
 
         // Read constructor
         context_t(transaction& tr, blob_id_t id)
         : _id(id)
         {
-            // Blob Parameter Buffer (BPB) not supported yet
-            invoke_except(isc_open_blob2,
-                tr.db().handle(), tr.handle(), &_handle, &id, 0, nullptr);
+            invoke_except(isc_open_blob,
+                tr.db().handle(), tr.handle(), &_handle, &id);
         }
 
         // Close on destruct

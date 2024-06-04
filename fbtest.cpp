@@ -170,12 +170,13 @@ int main()
 
         // Write blob
         {
+            std::cout << "update or insert existing blob..." << std::endl;
             fb::query proj(db,
                 "update or insert into project "
                 "(proj_id, proj_name, proj_desc) "
                 "values (?, ?, ?)");
 
-            proj.execute("GUIDE", "FB lib test",
+            proj.execute("UPDFB", "FB lib test",
                 "This is a description\nseparated by a next line");
 
             #if 0
@@ -189,15 +190,26 @@ int main()
 
         // Create blob
         {
+            std::cout << "delete before insert..." << std::endl;
+            fb::query(db, "delete from project where proj_id = 'NEWFB'").execute_immediate();
+
+            std::cout << "insert new blob..." << std::endl;
             fb::query proj(db,
                 "insert into project "
                 "(proj_id, proj_name, proj_desc) "
-                "values ('FBTST', ?, ?)");
+                "values ('NEWFB', ?, ?)");
 
-            // TODO not working, invalid transaction handle (expecting explicit transaction start)
-            proj.execute("FB lib test2",
+            #if 1
+            proj.execute("FB lib test3",
                 fb::blob(db).set("This is a second description\nAgain separated by a next line")
             );
+            #else
+            fb::blob data(db);
+            data.set("This is a second description\nAgain separated by a next line");
+            proj.execute("FB lib test2", data);
+            //auto id = data.id();
+            //proj.execute("FB lib test2", id);
+            #endif
 
             db.commit();
         }

@@ -1,3 +1,5 @@
+/// \file firebird.hpp
+
 #pragma once
 #include "transaction.hpp"
 #include "database.hpp"

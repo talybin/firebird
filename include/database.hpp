@@ -1,3 +1,5 @@
+/// \file database.hpp
+
 #pragma once
 #include <memory>
 #include <string_view>
@@ -69,6 +71,8 @@ struct database
     ///     fb::database db("employee");
     ///     fb::query(db, "select * from country");
     /// \endcode
+    ///
+    /// \return Transaction object.
     ///
     transaction& default_transaction() noexcept;
 

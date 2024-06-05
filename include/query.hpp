@@ -1,3 +1,5 @@
+/// \file query.hpp
+
 #pragma once
 #include "database.hpp"
 #include "sqlda.hpp"
@@ -223,15 +225,15 @@ private:
     query::context_t* _ctx = nullptr;
 };
 
-/// Row begin iterator.
+// Row begin iterator.
 query::iterator query::begin() const noexcept
 { return _context->_is_data_available ? _context.get() : end(); }
 
-/// Row end iterator.
+// Row end iterator.
 query::iterator query::end() const noexcept
 { return {}; }
 
-/// Access input parameters for reading and writing.
+// Access input parameters for reading and writing.
 sqlda& query::params(size_t hint_size)
 {
     context_t* c = _context.get();
@@ -255,7 +257,7 @@ sqlda& query::params(size_t hint_size)
     return c->_params;
 }
 
-/// Prepare query and buffer for receiving data.
+// Prepare query and buffer for receiving data.
 void query::prepare()
 {
     context_t* c = _context.get();
@@ -286,7 +288,7 @@ void query::prepare()
     c->_is_prepared = true;
 }
 
-/// Execute query.
+// Execute query.
 template <class... Args>
 query& query::execute(const Args&... args)
 {
@@ -313,7 +315,7 @@ query& query::execute(const Args&... args)
     return *this;
 }
 
-/// Get column names.
+// Get column names.
 std::vector<std::string_view> query::column_names() const noexcept
 {
     std::vector<std::string_view> view;

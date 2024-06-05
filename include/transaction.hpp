@@ -1,3 +1,5 @@
+/// \file transaction.hpp
+
 #pragma once
 #include <ibase.h>
 #include <memory>

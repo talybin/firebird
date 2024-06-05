@@ -1,3 +1,7 @@
+/// \file types.hpp
+/// This file contains the definitions of various structures and types
+/// used for handling SQL data, timestamps, and type conversions.
+
 #pragma once
 #include "exception.hpp"
 #include "traits.hpp"
@@ -13,20 +17,38 @@
 namespace fb
 {
 
-// Methods to convert timestamp
+/// Implementation of ISC_TIMESTAMP structure.
+/// It provides various methods to convert between ISC_TIMESTAMP
+/// and 'time_t' or 'std::tm'.
 struct timestamp_t : ISC_TIMESTAMP
 {
-    // Convert timestamp_t to time_t.
-    // Note, this will cut all dates below 1970-01-01, use to_tm() instead.
-    // 40587 is GDS epoch start in days (since 1858-11-17, time_t starts at 1970).
+    /// Convert timestamp_t to time_t.
+    ///
+    /// \note This will cut all dates below 1970-01-01, use to_tm() instead.
+    ///
+    /// \return Equivalent time_t value.
+    ///
     time_t to_time_t() const noexcept
+    // 40587 is GDS epoch start in days (since 1858-11-17, time_t starts at 1970).
     { return std::max(int(timestamp_date) - 40587, 0) * 86400 + timestamp_time / 10'000; }
 
+    /// Convert timestamp_t to std::tm.
+    ///
+    /// \param[in,out] t - Pointer to std::tm structure.
+    ///
+    /// \return Pointer to the updated std::tm structure.
+    ///
     std::tm* to_tm(std::tm* t) const noexcept {
         isc_decode_timestamp(const_cast<timestamp_t*>(this), t);
         return t;
     }
 
+    /// Create timestamp_t from time_t.
+    ///
+    /// \param[in] t - time_t value.
+    ///
+    /// \return Equivalent timestamp_t value.
+    ///
     static timestamp_t from_time_t(time_t t) noexcept
     {
         timestamp_t ret;
@@ -35,6 +57,12 @@ struct timestamp_t : ISC_TIMESTAMP
         return ret;
     }
 
+    /// Create timestamp_t from std::tm.
+    ///
+    /// \param[in] t - Pointer to std::tm structure.
+    ///
+    /// \return Equivalent timestamp_t value.
+    ///
     static timestamp_t from_tm(std::tm* t) noexcept
     {
         timestamp_t ret;
@@ -42,26 +70,45 @@ struct timestamp_t : ISC_TIMESTAMP
         return ret;
     }
 
+    /// Get the current timestamp.
     static timestamp_t now() noexcept
     { return from_time_t(time(0)); }
 
+    /// Get milliseconds from the timestamp.
     size_t ms() const noexcept
     { return (timestamp_time / 10) % 1000; }
 };
 
-
-// SQL integer type
+/// SQL integer type with scaling.
+///
+/// \tparam T - Underlying integer type.
+///
 template <class T>
 struct scaled_integer
 {
+    /// Value of the integer.
     T _value;
+    /// Scale factor.
     short _scale;
 
+    /// Constructs a scaled_integer with a value and scale.
+    ///
+    /// \param[in] value - Integer value.
+    /// \param[in] scale - Scale factor (optional, default is 0).
+    ///
     explicit scaled_integer(T value, short scale = 0) noexcept
     : _value(value)
     , _scale(scale)
     { }
 
+    /// Get the value with scale applied. Throws if value do
+    /// not fit in given type.
+    ///
+    /// \tparam U - Type to return the value as.
+    ///
+    /// \return Value adjusted by the scale.
+    /// \throw fb::exception
+    ///
     template <class U = T>
     U get() const
     {
@@ -88,6 +135,15 @@ struct scaled_integer
         }
     }
 
+    /// Convert the scaled integer to a string. Throws if
+    /// buffer is too small.
+    ///
+    /// \param[in] buf - Buffer to store the string.
+    /// \param[in] size - Size of the buffer.
+    ///
+    /// \return String view of the scaled integer.
+    /// \throw fb::exception
+    ///
     std::string_view to_string(char* buf, size_t size) const
     {
         char* end = buf + size;
@@ -113,6 +169,7 @@ struct scaled_integer
         throw fb::exception(std::make_error_code(ec).message());
     }
 
+    /// Convert the scaled integer to a string.
     std::string to_string() const
     {
         char buf[64];
@@ -120,6 +177,7 @@ struct scaled_integer
     }
 
 private:
+    /// Throws an error for invalid type conversions.
     template <class U>
     [[noreturn]] void error() const
     {
@@ -130,11 +188,10 @@ private:
     }
 };
 
-
-// BLOB type
+/// BLOB id type.
 using blob_id_t = ISC_QUAD;
 
-// SQL types
+/// Variant of SQL types.
 using field_t = std::variant<
     std::nullptr_t,
     std::string_view,
@@ -147,30 +204,42 @@ using field_t = std::variant<
     blob_id_t
 >;
 
-
-// Visitors with type conversion.
-// Where T is requested type and argument to call operator
-// is field_t value.
-// Note, these visitors called only for non-null values, e.g.
-// no need to check for nullptr_t.
-
+/// Expandable type converter. Capable to convert from
+/// a SQL type to any type defined here.
+///
+/// \tparam T - Requested (desination) type.
+///
 template <class T, class = void>
 struct type_converter
 {
-    // All types convertible to T or itself (ex. std::string_view)
+    /// All types convertible to T or itself (ex. std::string_view).
     T operator()(T val) const noexcept
     { return val; }
 };
 
-// T is integral type or floating point
+/// Specialization for arithmetic (integral and floating-point) types.
 template <class T>
 struct type_converter<T, std::enable_if_t<std::is_arithmetic_v<T>> >
 {
+    /// Convert scaled_integer to the requested type.
+    ///
+    /// \tparam U - Underlying type of scaled_integer.
+    /// \param[in] val - Scaled integer value to convert.
+    ///
+    /// \return Converted value.
+    /// \throw fb::exception
+    ///
     template <class U>
     T operator()(scaled_integer<U> val) const
     { return val.template get<T>(); }
 
-    // Convert string to arithmetic
+    /// Convert string to arithmetic type.
+    ///
+    /// \param[in] val - String view to convert.
+    ///
+    /// \return Converted value.
+    /// \throw fb::exception
+    ///
     T operator()(std::string_view val) const
     {
         T ret{};
@@ -183,27 +252,39 @@ struct type_converter<T, std::enable_if_t<std::is_arithmetic_v<T>> >
     }
 };
 
-// T is std::string
+/// Specialization for std::string type.
 template <>
 struct type_converter<std::string>
 {
-    // std::string_view
+    /// Convert string view to std::string.
     auto operator()(std::string_view val) const noexcept
     { return std::string(val);}
 
-    // float, double
+    /// Convert float or double to std::string.
     template <class U>
     auto operator()(U val) const noexcept -> decltype(std::to_string(val))
     { return std::to_string(val); }
 
-    // scaled_integer
+    /// Convert scaled_integer to std::string.
+    ///
+    /// \tparam U - Underlying type of scaled_integer.
+    /// \param[in] val - Scaled integer value to convert.
+    ///
+    /// \return Converted std::string.
+    /// \throw fb::exception
+    ///
     template <class U>
     auto operator()(scaled_integer<U> val) const
     { return val.to_string(); }
 };
 
-
-// Tag to skip parameter
+/// Tag to skip parameter.
+///
+/// \code{.cpp}
+///     // Execute query with parameters, but send only second one (skip first)
+///     qry.execute(fb::skip, "second");
+/// \endcode
+///
 struct skip_t { };
 inline constexpr skip_t skip;
 

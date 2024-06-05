@@ -18,12 +18,12 @@ struct transaction::context_t
     database _db;
 };
 
-/// Construct and attach database object.
+// Construct and attach database object.
 transaction::transaction(database& db) noexcept
 : _context(std::make_shared<context_t>(db))
 { }
 
-/// Start transaction (if not started yet).
+// Start transaction (if not started yet).
 void transaction::start()
 {
     context_t* c = _context.get();
@@ -31,23 +31,23 @@ void transaction::start()
         invoke_except(isc_start_transaction, &c->_handle, 1, c->_db.handle(), 0, nullptr);
 }
 
-/// Commit (apply) pending changes.
+// Commit (apply) pending changes.
 void transaction::commit()
 { invoke_except(isc_commit_transaction, &_context->_handle); }
 
-/// Rollback (cancel) pending changes.
+// Rollback (cancel) pending changes.
 void transaction::rollback()
 { invoke_except(isc_rollback_transaction, &_context->_handle); }
 
-/// Get internal pointer to isc_tr_handle.
+// Get internal pointer to isc_tr_handle.
 isc_tr_handle* transaction::handle() const noexcept
 { return &_context->_handle; }
 
-/// Get database attached to this transaction.
+// Get database attached to this transaction.
 database& transaction::db() const noexcept
 { return _context->_db; }
 
-/// Prepares the DSQL statement, executes it once, and discards it.
+// Prepares the DSQL statement, executes it once, and discards it.
 template <class... Args>
 void transaction::execute_immediate(std::string_view sql, const Args&... args)
 {

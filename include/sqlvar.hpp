@@ -1,3 +1,7 @@
+/// \file sqlvar.hpp
+/// This file contains the definition of the sqlvar structure for
+/// handling SQL variable data.
+
 #pragma once
 #include "types.hpp"
 #include "exception.hpp"
@@ -8,19 +12,32 @@
 namespace fb
 {
 
-// This is only a view of XSQLVAR. Be carefull with expired values.
-// See https://docwiki.embarcadero.com/InterBase/2020/en/XSQLVAR_Field_Descriptions
+/// This is a view of XSQLVAR. Be careful with expired values.
+///
+/// \see https://docwiki.embarcadero.com/InterBase/2020/en/XSQLVAR_Field_Descriptions
+///
 struct sqlvar
 {
+    /// Alias for XSQLVAR type.
     using type = XSQLVAR;
+    /// Alias for pointer to XSQLVAR type.
     using pointer = std::add_pointer_t<type>;
 
+    /// Constructs an sqlvar object from a given XSQLVAR pointer.
+    ///
+    /// \param[in] var - Pointer to XSQLVAR.
+    ///
     explicit sqlvar(pointer var) noexcept
     : _ptr(var) { }
 
     // Set methods
 
-    // Generic set method for sqltype, data, and length
+    /// Generic set method for sqltype, data, and length.
+    ///
+    /// \param[in] stype - SQL type.
+    /// \param[in] sdata - Pointer to data.
+    /// \param[in] slen - Length of data.
+    ///
     void set(int stype, const void* sdata, size_t slen) noexcept
     {
         _ptr->sqltype = stype;
@@ -28,78 +45,132 @@ struct sqlvar
         _ptr->sqllen = slen;
     }
 
-    // Skip method, does nothing
+    /// Skip method, does nothing.
     void set(skip_t) noexcept { }
 
+    /// Sets the value of the SQL variable to a float.
     void set(const float& val) noexcept
     { set(SQL_FLOAT, &val, sizeof(float)); }
 
+    /// Sets the value of the SQL variable to a double.
     void set(const double& val) noexcept
     { set(SQL_DOUBLE, &val, sizeof(double)); }
 
+    /// Sets the value of the SQL variable to an int16_t.
     void set(const int16_t& val) noexcept
     { set(SQL_SHORT, &val, 2); }
 
+    /// Sets the value of the SQL variable to an int32_t.
     void set(const int32_t& val) noexcept
     { set(SQL_LONG, &val, 4); }
 
+    /// Sets the value of the SQL variable to an int64_t.
     void set(const int64_t& val) noexcept
     { set(SQL_INT64, &val, 8); }
 
+    /// Sets the value of the SQL variable to a string.
     void set(std::string_view val) noexcept
     { set(SQL_TEXT, val.data(), val.size()); }
 
+    /// Sets the value of the SQL variable to a timestamp.
     void set(const timestamp_t& val) noexcept
     { set(SQL_TIMESTAMP, &val, sizeof(timestamp_t)); }
 
+    /// Sets the value of the SQL variable to a blob.
     void set(const blob_id_t& val) noexcept
     { set(SQL_BLOB, &val, sizeof(blob_id_t)); }
 
+    /// Sets the value of the SQL variable to null.
     void set(std::nullptr_t) noexcept
     { _ptr->sqltype = SQL_NULL; }
 
-    // Set by assigning
+    /// Set by assigning.
+    ///
+    /// \tparam T - Type of the value.
+    /// \param[in] val - Value to assign.
+    ///
+    /// \return Reference to this sqlvar object.
+    ///
     template <class T>
     auto operator=(const T& val) noexcept -> decltype(set(val), *this)
     { return (set(val), *this); }
 
     // Get methods
 
-    // Return the internal pointer to XSQLVAR
+    /// Returns the internal pointer to XSQLVAR (const version).
     const pointer handle() const noexcept
     { return _ptr; }
 
+    /// Returns the internal pointer to XSQLVAR.
     pointer handle() noexcept
     { return _ptr; }
 
-    // Get column name
+    /// Gets the column name.
     std::string_view name() const noexcept
     { return std::string_view(_ptr->sqlname, _ptr->sqlname_length); }
 
-    // Get table name
+    /// Gets the table name.
     std::string_view table() const noexcept
     { return std::string_view(_ptr->relname, _ptr->relname_length); }
 
+    /// Gets the SQL data type.
     uint16_t sql_datatype() const noexcept
     { return _ptr->sqltype & ~1; }
 
-    // This will show actual max column size before set() destroys it
+    /// Gets the maximum column size (in bytes) as
+    /// allocated on firebird server. For example
+    /// maximum allowed length of string for this
+    /// specific column as given as VARCHAR(size).
+    ///
+    /// \note set() methods may rewrite this value.
+    ///
     size_t size() const noexcept
     { return _ptr->sqllen; }
 
+    /// Checks if the value is null.
     bool is_null() const noexcept
     { return (_ptr->sqltype & 1) && (*_ptr->sqlind < 0); }
 
-    // Check for null
+    /// Checks for null.
+    ///
+    /// \code{.cpp}
+    ///     if (row["CUSTOMER_ID"]) {
+    ///         // This field is not null
+    ///     }
+    /// \endcode
+    ///
     operator bool() const noexcept
     { return !is_null(); }
 
-    // Return by assigning
+    /// Return the value by assigning.
+    ///
+    /// \code{.cpp}
+    ///     int cust_id = row["CUSTOMER_ID"];
+    /// \endcode
+    ///
+    /// \tparam T - Type to convert to.
+    ///
+    /// \return Value of the specified type.
+    /// \throw fb::exception
+    ///
     template <class T>
     operator T() const
     { return value<T>(); }
 
-    // Get value. Throws if value is null.
+    /// Gets the value. Throws if the value is null.
+    /// The actual type of the value (as received from
+    /// database) may be converted to requested type.
+    ///
+    /// \code{.cpp}
+    ///     // The actual type of field is int32_t, but we want a string here
+    ///     auto cust_id = row["CUSTOMER_ID"].value<std::string>();
+    /// \endcode
+    ///
+    /// \tparam T - Type of the value.
+    ///
+    /// \return Value of the specified type.
+    /// \throw fb::exception
+    ///
     template <class T>
     T value() const
     {
@@ -108,7 +179,19 @@ struct sqlvar
         return visit<T>();
     }
 
-    // Get value or default value if null
+    /// Gets the value or default value if null.
+    ///
+    /// \code{.cpp}
+    ///     // Set cust_id to 0 if field is null
+    ///     auto cust_id = row["CUSTOMER_ID"].value_or(0);
+    /// \endcode
+    ///
+    /// \tparam T - Type of the value.
+    /// \param[in] default_value - Default value to return if null.
+    ///
+    /// \return Value of the specified type or default value.
+    /// \throw fb::exception
+    ///
     template <class T>
     T value_or(T default_value) const
     {
@@ -117,13 +200,19 @@ struct sqlvar
         return visit<T>();
     }
 
-    // Get the value as a variant (field_t)
+    /// Gets the value as a variant (field_t).
+    ///
+    /// \return Value as a variant.
+    /// \throw fb::exception
+    ///
     field_t as_variant() const;
 
 private:
-    // Internal pointer to XSQLVAR
+    /// Internal pointer to XSQLVAR
     pointer _ptr;
 
+    /// Extract value from a variant. Value may be
+    /// converted to another type by type_converter.
     template <class T>
     T visit() const
     {
@@ -136,8 +225,7 @@ private:
     }
 };
 
-
-// Get value variant (field_t) based on the type of SQL data
+// Gets the value as a variant (field_t).
 field_t sqlvar::as_variant() const
 {
     if (is_null())

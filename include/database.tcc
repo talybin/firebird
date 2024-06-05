@@ -30,7 +30,7 @@ struct database::params
     std::vector<char> _dpb;
 };
 
-/// Database internal data
+/// Database internal data.
 struct database::context_t
 {
     /// Construct database from handle.
@@ -59,7 +59,7 @@ struct database::context_t
     isc_db_handle _handle = 0;
 };
 
-/// Construct database for connection.
+// Construct database for connection.
 database::database(
     std::string_view path, std::string_view user, std::string_view passwd) noexcept
 : _context(std::make_shared<context_t>(path))
@@ -73,14 +73,14 @@ database::database(
     p.add(isc_dpb_password, passwd);
 }
 
-/// Construct database from handle.
+// Construct database from handle.
 database::database(isc_db_handle h) noexcept
 : _context(std::make_shared<context_t>(h))
 {
     _trans = *this;
 }
 
-/// Connect to database using parameters provided in constructor.
+// Connect to database using parameters provided in constructor.
 void database::connect()
 {
     context_t* c = _context.get();
@@ -90,16 +90,16 @@ void database::connect()
         0, c->_path.c_str(), &c->_handle, dpb.size(), dpb.data());
 }
 
-/// Disconnect from database.
+// Disconnect from database.
 void database::disconnect() noexcept
 { _context->disconnect(); }
 
-/// Execute query once and discard it.
+// Execute query once and discard it.
 template <class... Args>
 void database::execute_immediate(std::string_view sql, const Args&... params)
 { _trans.execute_immediate(sql, params...); }
 
-/// Create new database.
+// Create new database.
 database database::create(std::string_view sql)
 {
     isc_db_handle db_handle = 0;
@@ -116,19 +116,19 @@ database database::create(std::string_view sql)
     return db_handle;
 }
 
-/// Get native internal handle.
+// Get native internal handle.
 isc_db_handle* database::handle() const noexcept
 { return &_context->_handle; }
 
-/// Get default transaction.
+// Get default transaction.
 transaction& database::default_transaction() noexcept
 { return _trans; }
 
-/// Commit default transaction.
+// Commit default transaction.
 void database::commit()
 { _trans.commit(); }
 
-/// Rollback default transaction.
+// Rollback default transaction.
 void database::rollback()
 { _trans.rollback(); }
 

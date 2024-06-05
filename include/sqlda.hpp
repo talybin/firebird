@@ -1,3 +1,4 @@
+/// \file sqlda.hpp
 /// This file contains the definition of the sqlda structure used
 /// for transporting data in SQL statements.
 
@@ -161,7 +162,7 @@ struct sqlda
     sqlvar operator[](std::string_view pos) const
     { return at(pos); }
 
-    /// Allocate aligned space for incoming data.
+    /// Allocates aligned space for incoming data.
     void alloc_data() noexcept;
 
     /// Construct a tuple of specified indexes.
@@ -309,15 +310,15 @@ private:
     value_type _var;
 };
 
-/// Returns an iterator to the first column.
+// Returns an iterator to the first column.
 sqlda::iterator sqlda::begin() const noexcept
 { return _ptr ? _ptr->sqlvar : nullptr; }
 
-/// Returns an iterator to the end.
+// Returns an iterator to the end.
 sqlda::iterator sqlda::end() const noexcept
 { return _ptr ? &_ptr->sqlvar[std::min(size(), capacity())] : nullptr; }
 
-/// Sets input parameters.
+// Sets input parameters.
 template <class... Args>
 std::enable_if_t<(sizeof...(Args) > 0)>
 sqlda::set(const Args&... args)
@@ -332,7 +333,7 @@ sqlda::set(const Args&... args)
     ((it->set(args), ++it), ...);
 }
 
-/// Allocates aligned space for incoming data.
+// Allocates aligned space for incoming data.
 void sqlda::alloc_data() noexcept
 {
     // Calculate data size and offsets
@@ -367,7 +368,7 @@ void sqlda::alloc_data() noexcept
     }
 }
 
-/// Visit details
+// Visit details
 template <class F, size_t... I>
 struct sqlda::visitor_impl<F, std::index_sequence<I...>>
 {
@@ -386,7 +387,7 @@ struct sqlda::visitor_impl<F, std::index_sequence<I...>>
     }
 };
 
-/// Visit columns.
+// Visit columns.
 template <size_t MAX_FIELDS, class F>
 constexpr decltype(auto)
 sqlda::visit(F&& cb) const

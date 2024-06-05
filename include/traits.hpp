@@ -23,7 +23,7 @@ template <class... Ts>
 overloaded(Ts...) -> overloaded<Ts...>;
 
 
-// Convertor to any type
+/// Template argument, used to replace unknown types.
 struct any_type
 {
     template <class T>

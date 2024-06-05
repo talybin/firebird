@@ -11,6 +11,9 @@ EXAMPLE_DIR := examples
 all: ${TEST_DIR} ${EXAMPLE_DIR} single fbtest
 .PHONY: all
 
+docs::
+	doxygen Doxyfile
+
 single: ${HDR_FILES} make_single.py
 	python3 make_single.py
 

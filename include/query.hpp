@@ -8,41 +8,112 @@ namespace fb
 
 struct query
 {
+    /// Rows iterator.
     struct iterator;
 
+    /// Construct query for given transaction.
+    ///
+    /// @param[in] tr - Transaction.
+    /// @param[in] sql - SQL query to be executed.
+    ///
     query(transaction tr, std::string_view sql) noexcept
     : _context(std::make_shared<context_t>(tr, sql))
     { }
 
+    /// Construct query to be used in default transaction
+    /// for given database.
+    ///
+    /// @param[in] db - Database.
+    /// @param[in] sql - SQL query to be executed.
+    ///
     query(database db, std::string_view sql) noexcept
     : query(db.default_transaction(), sql)
     { }
 
-    // Input parameters.
-    // For the first use of this method, query will try to
-    // detect number of parameters needed. If you know how
-    // many parameters required you can hint the size.
+    /// Access input parameters for reading and writing.
+    /// Should be called before execute() method.
+    ///
+    /// For the first use of this method, query will try to
+    /// detect number of parameters needed. If you know how
+    /// many parameters required you can hint the size.
+    /// This will prevent reallocation of memory if required
+    /// number of parameters must be increased.
+    ///
+    /// @param[in] hint_size - Number of parameters to reserve
+    ///                        (optional, default is 1).
+    ///
+    /// \return Parameter list.
+    /// \throw fb::exception
+    ///
     sqlda& params(size_t hint_size = 1);
 
-    // Output fields
+    /// Access output fields (result of SELECT) for reading
+    /// only. Should be called after execute() method.
+    ///
+    /// \return Field list.
+    ///
     const sqlda& fields() const noexcept
     { return _context->_fields; }
 
-    // Prepare query and buffer for receiving data
+    /// Prepare query and buffer for receiving data (if not
+    /// prepared yet).
+    ///
+    /// Normally there is no need to call this method.
+    /// It is called by other methods as needed.
+    ///
+    /// \throw fb::exception
+    ///
     void prepare();
 
-    // Run query
+    /// Execute query with parameters (optional). If parameters
+    /// required, but not given here, previously created
+    /// parameters (via params() method) apply. It is also
+    /// possible to mix this two methods, see example. Use
+    /// fb::skip to set only previously unset ones.
+    ///
+    /// @param[in] args - Parameters to pass to this query
+    ///                   (optional). Number of arguments
+    ///                   must match required number or none.
+    ///
+    /// \return Reference to this query.
+    /// \throw fb::exception
+    ///
+    /// \code{.cpp}
+    ///     fb::query q(db, "select * from sales where a = ? and b = ?);
+    ///     q.params()["a"] = 42;
+    ///     q.execute(fb::skip, "shipped"); // "a" is already set
+    ///     // ... later ...
+    ///     q.params()["b"] = "open";
+    ///     q.execute(); // using previously set "a" and "b"
+    /// \endcode
+    ///
     template <class... Args>
     query& execute(const Args&... args);
 
-    // Row iterators
+    /// Row begin iterator.
     iterator begin() const noexcept;
+    /// Row end iterator.
     iterator end() const noexcept;
 
-    // Get column names
+    /// Get column names.
     std::vector<std::string_view> column_names() const noexcept;
 
-    // Get row values
+    /// Iterate result of SELECT query by calling callback for
+    /// each row.
+    ///
+    /// \throw fb::exception
+    ///
+    /// \code{.cpp}
+    ///     fb::query q(db, "select * from country");
+    ///     q.execute().foreach([](auto country, auto currency)
+    ///     {
+    ///         std::cout << country.name() << ": "
+    ///                   << country.value_or("null") << std::endl;
+    ///         std::cout << currency.name() << ": "
+    ///                   << currency.value_or("null") << std::endl;
+    ///     });
+    /// \endcode
+    ///
     template <class F>
     void foreach(F&& cb) const
     {

@@ -41,13 +41,9 @@ struct blob
     operator blob_id_t&() const noexcept
     { return _context->_id; }
 
-    // Set blob to a string
-    blob& set(std::string_view str)
-    {
-        write_chunk(str.data(), str.size());
-        close();
-        return *this;
-    }
+    // Set blob from supported types (expandable)
+    template <class T>
+    blob& set(T from);
 
     // Get chunk of data.
     // Return number of bytes actually read (0 if no more data available).
@@ -117,6 +113,17 @@ void blob::write_chunk(const char* buf, uint16_t buf_length)
 {
     invoke_except(isc_put_segment,
         &_context->_handle, buf_length, const_cast<char*>(buf));
+}
+
+
+// Set blob from a string
+template <class T>
+blob& blob::set(string_like<T> value)
+{
+    std::string_view str(value);
+    write_chunk(str.data(), str.size());
+    close();
+    return *this;
 }
 
 } // namespace fb

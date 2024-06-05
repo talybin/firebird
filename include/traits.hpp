@@ -89,5 +89,9 @@ using static_castable = F;
 template <class F>
 using index_castable = static_castable<F, size_t>;
 
+// Concept constructible by std::string_view
+template <class T, class = std::enable_if_t<std::is_constructible_v<std::string_view, T>> >
+using string_like = T;
+
 } // namespace fb
 

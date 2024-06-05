@@ -11,8 +11,7 @@ parser.add_argument('--output', '-o', nargs = 1,
 args = parser.parse_args()
 
 single_file = args.output if type(args.output) == str else args.output[0]
-#license_file = 'LICENSE'
-license_file = None
+license_file = 'LICENSE.MIT'
 
 includes = []
 depend_include = re.compile(r'#include ["<](.*?)[>"]')
@@ -59,7 +58,7 @@ def build_intro():
 
     return intro.format(
         license = license,
-        time = datetime.datetime.now(datetime.UTC))
+        time = datetime.datetime.now(datetime.timezone.utc))
 
 
 def process_file(filename, out):

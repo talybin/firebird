@@ -7,14 +7,14 @@ namespace fb
 
 struct database
 {
-    /// Database Parameter Buffer (DPB)
+    /// Database Parameter Buffer (DPB).
     struct params;
 
     /// Construct database for connection.
     ///
-    /// @param[in] path - DSN connection string.
-    /// @param[in] user - Username. Optional, default is "sysdba".
-    /// @param[in] passwd - Password. Optional, default is "masterkey".
+    /// \param[in] path - DSN connection string.
+    /// \param[in] user - Username. Optional, default is "sysdba".
+    /// \param[in] passwd - Password. Optional, default is "masterkey".
     ///
     database(
         std::string_view path,
@@ -33,8 +33,8 @@ struct database
     /// Execute query once and discard it. Calls execute_immediate() of
     /// default transaction.
     ///
-    /// @param[in] sql - SQL query to execute.
-    /// @param[in] params - Parameters to be set in SQL query (optional, if any).
+    /// \param[in] sql - SQL query to execute.
+    /// \param[in] params - Parameters to be set in SQL query (optional, if any).
     ///
     /// \throw fb::exception
     /// \see transaction::execute_immediate
@@ -44,17 +44,17 @@ struct database
 
     /// Create new database.
     ///
-    /// @param[in] sql - CREATE DATABASE query.
-    ///
-    /// \return Database object connected to newly created database.
-    /// \throw fb::exception
-    ///
     /// \code{.cpp}
     ///     fb::database new_db = fb::database::create(
     ///         "CREATE DATABASE 'localhost/3053:/firebird/data/mydb.ib' "
     ///         "USER 'SYSDBA' PASSWORD 'masterkey' "
     ///         "PAGE_SIZE 8192 DEFAULT CHARACTER SET UTF8");
     /// \endcode
+    ///
+    /// \param[in] sql - CREATE DATABASE query.
+    ///
+    /// \return Database object connected to newly created database.
+    /// \throw fb::exception
     ///
     static database create(std::string_view sql);
 

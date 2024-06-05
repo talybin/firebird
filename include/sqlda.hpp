@@ -1,3 +1,6 @@
+/// This file contains the definition of the sqlda structure used
+/// for transporting data in SQL statements.
+
 #pragma once
 #include "sqlvar.hpp"
 #include "exception.hpp"
@@ -10,11 +13,13 @@
 namespace fb
 {
 
-// XSQLDA is a host-language data structure that DSQL uses to transport
-// data to or from a database when processing a SQL statement string.
-// See https://docwiki.embarcadero.com/InterBase/2020/en/XSQLDA_Field_Descriptions_(Embedded_SQL_Guide)
+/// XSQLDA is a host-language data structure that DSQL uses to transport
+/// data to or from a database when processing a SQL statement string.
+///
+/// \see https://docwiki.embarcadero.com/InterBase/2020/en/XSQLDA_Field_Descriptions_(Embedded_SQL_Guide)
 struct sqlda
 {
+    /// Column iterator.
     struct iterator;
 
     using type = XSQLDA;
@@ -23,27 +28,56 @@ struct sqlda
     using ptr_t = std::unique_ptr<type, decltype(&free)>;
     using data_buffer_t = std::vector<char>;
 
+    /// Constructs an sqlda object with a specified number of columns.
+    ///
+    /// \param[in] nr_cols - Number of columns to allocate (optional,
+    ///                      default is 0). Zero number of columns
+    ///                      will not allocate any memory.
+    ///
     explicit sqlda(size_t nr_cols = 0) noexcept
     : _ptr(alloc(nr_cols))
     { }
 
+    /// Conversion operator to pointer.
+    ///
+    /// \return Pointer to XSQLDA type.
+    /// \see get()
+    ///
     operator pointer() const noexcept
     { return get(); }
 
+    /// Gets the raw pointer to XSQLDA.
+    ///
+    /// \return Pointer to XSQLDA type.
+    ///
     pointer get() const noexcept
     { return _ptr.get(); }
 
+    /// XSQLDA member access operator.
+    ///
+    /// \return Pointer to XSQLDA type.
+    ///
     pointer operator->() const noexcept
     { return get(); }
 
+    /// Column iterator
     iterator begin() const noexcept;
+
+    /// Column iterator
     iterator end() const noexcept;
 
-    // Number of used columns
+    /// Gets the number of used columns.
+    ///
+    /// \return Number of columns currently in use.
+    ///
     size_t size() const noexcept
     { return _ptr ? _ptr->sqld : 0; }
 
-    // Changes the number of columns stored
+    /// Changes the number of columns stored. If capacity
+    /// is below required number, it will be increased.
+    ///
+    /// \param[in] nr_cols - Number of columns to set.
+    ///
     void resize(size_t nr_cols) noexcept
     {
         assert(nr_cols > 0);
@@ -53,15 +87,28 @@ struct sqlda
             _ptr->sqld = nr_cols;
     }
 
-    // Number of columns allocated
+    /// Gets the number of columns allocated.
+    ///
+    /// \return Number of columns allocated.
+    ///
     size_t capacity() const noexcept
     { return _ptr ? _ptr->sqln : 0; }
 
-    // Resize capacity to given number of columns
+    /// Resizes capacity to the given number of columns.
+    ///
+    /// \param[in] nr_cols - Number of columns to allocate.
+    ///
     void reserve(size_t nr_cols) noexcept
     { _ptr = alloc(nr_cols); }
 
-    // Access by index (with check for out of range)
+    /// Access column by index (with check for out of range).
+    ///
+    /// \tparam T - Type of index (integral type or enum).
+    /// \param[in] pos - Position to access.
+    ///
+    /// \return sqlvar object at the specified position.
+    /// \throw fb::exception
+    ///
     template <class T>
     sqlvar at(index_castable<T> pos) const 
     {
@@ -72,7 +119,13 @@ struct sqlda
         return this->operator[](index);
     }
 
-    // Access by column name (a bit slower than by index)
+    /// Access by column name (a bit slower than by index).
+    ///
+    /// \param[in] pos - Column name.
+    ///
+    /// \return sqlvar object for the specified column name.
+    /// \throw fb::exception
+    ///
     sqlvar at(std::string_view pos) const
     {
         auto end = &_ptr->sqlvar[size()];
@@ -84,7 +137,13 @@ struct sqlda
         throw fb::exception() << std::quoted(pos) << " not found";
     }
 
-    // Access by index (without check for out of range)
+    /// Access column by index without range check.
+    ///
+    /// \tparam T - Type of index (integral type or enum).
+    /// \param[in] pos - Position to access.
+    ///
+    /// \return sqlvar object at the specified position.
+    ///
     template <class T>
     sqlvar operator[](index_castable<T> pos) const noexcept
     {
@@ -92,33 +151,72 @@ struct sqlda
         return sqlvar(&_ptr->sqlvar[static_cast<size_t>(pos)]);
     }
 
-    // Access by column name
+    /// Access by column name.
+    ///
+    /// \param[in] pos - Column name.
+    ///
+    /// \return sqlvar object for the specified column name.
+    /// \throw fb::exception
+    ///
     sqlvar operator[](std::string_view pos) const
     { return at(pos); }
 
-    // Allocate aligned space for incoming data
+    /// Allocate aligned space for incoming data.
     void alloc_data() noexcept;
 
-    // Return tuple
+    /// Construct a tuple of specified indexes.
+    ///
+    /// \code{.cpp}
+    ///     // Get columns 0, 7 and 8
+    ///     auto tup = row.as_tuple<0, 7, 8>();
+    /// \endcode
+    ///
+    /// \tparam I... - Indexes.
+    ///
+    /// \return Tuple containing sqlvar objects.
+    ///
     template <auto... I>
     auto as_tuple() const noexcept
     { return std::make_tuple(this->operator[](I)...); }
 
-    // Set input parameters.
-    // Note! This creates a view to arguments and XSQLVARs
-    //       are valid as long as args do not expire.
+    /// Sets input parameters.
+    ///
+    /// \note This creates a view to arguments and XSQLVARs
+    ///       are valid as long as args do not expire.
+    ///
+    /// \tparam Args... - Value types.
+    /// \param[in] args... - Any values (numeric, strings, ...).
+    ///
+    /// \throw fb::exception
+    /// \see query::execute()
+    ///
     template <class... Args>
     std::enable_if_t<(sizeof...(Args) > 0)>
     set(const Args&... args);
 
-    // Set without values, do nothing
+    /// Dummy method that does nothing.
     void set() noexcept { }
 
-    // Visit columns
-    // where F is visitor accepting sqlvar as argument(s).
-    // If number of fields returning from database is
-    // greater than MAX_FIELDS, call visit with required
-    // number, e.g. visit<15>(...)
+    /// Visits columns with a visitor function. Argument
+    /// type is sqlvar.
+    ///
+    /// \code{.cpp}
+    ///     // Visit max 15 fields instead of default 10
+    ///     row.visit<15>([](auto... columns) {
+    ///         std::cout << "row has " << sizeof...(columns) << " columns\n";
+    ///     });
+    /// \endcode
+    ///
+    /// \tparam MAX_FIELDS - Maximum number of fields that
+    ///                      can be visited. Increase this
+    ///                      number if more required.
+    ///                      Default is 10 fields.
+    /// \tparam F - Visitor function type.
+    /// \param[in] cb - Visitor function.
+    ///
+    /// \return Result of the visitor function.
+    /// \throw fb::exception
+    ///
     template <size_t MAX_FIELDS = 10, class F>
     constexpr decltype(auto)
     visit(F&& cb) const;
@@ -132,7 +230,11 @@ private:
     template <class F, size_t N>
     using visitor = visitor_impl<F, std::make_index_sequence<N>>;
 
-    // Allocate buffer enough to hold given number of columns
+    /// Allocate and initializae buffer enough to hold given
+    /// number of columns.
+    ///
+    /// \return nullptr if nr_cols is zero.
+    ///
     static ptr_t alloc(size_t nr_cols) noexcept
     {
         pointer ptr = nullptr;
@@ -145,72 +247,77 @@ private:
     }
 };
 
-
-// Iterator for column traversing
+/// Iterator for column traversing
 struct sqlda::iterator
 {
+    /// Iterator value type.
     using value_type = sqlvar;
+    /// Alias for pointer to sqlvar.
     using pointer = value_type*;
+    /// Alias for reference to sqlvar.
     using reference = value_type&;
 
+    /// Constructs an iterator from given sqlvar pointer.
     iterator(value_type::pointer var) noexcept
     : _var(var)
     { }
 
+    /// Dereference operator.
     reference operator*() noexcept
     { return _var; }
 
+    /// Member access operator.
     pointer operator->() noexcept
     { return &_var; }
 
-    // Prefix increment (++x)
+    /// Prefix increment (++x)
     iterator& operator++() noexcept {
         _var = value_type(_var.handle() + 1);
         return *this;
     }
 
-    // Postfix increment (x++)
+    /// Postfix increment (x++)
     iterator operator++(int) noexcept {
         iterator cur(_var.handle());
         this->operator++();
         return cur;
     }
 
-    // Prefix decrement (--x)
+    /// Prefix decrement (--x)
     iterator& operator--() noexcept {
         _var = value_type(_var.handle() - 1);
         return *this;
     }
 
-    // Postfix decrement (x--)
+    /// Postfix decrement (x--)
     iterator operator--(int) noexcept {
         iterator cur(_var.handle());
         this->operator--();
         return cur;
     }
 
+    /// Equality operator.
     bool operator==(const iterator& rhs) const noexcept
     { return _var.handle() == rhs._var.handle(); };
 
+    /// Inequality operator.
     bool operator!=(const iterator& rhs) const noexcept
     { return _var.handle() != rhs._var.handle(); };
 
 private:
+    /// sqlvar object for the iterator.
     value_type _var;
 };
 
-
+/// Returns an iterator to the first column.
 sqlda::iterator sqlda::begin() const noexcept
 { return _ptr ? _ptr->sqlvar : nullptr; }
 
-
+/// Returns an iterator to the end.
 sqlda::iterator sqlda::end() const noexcept
 { return _ptr ? &_ptr->sqlvar[std::min(size(), capacity())] : nullptr; }
 
-
-// Set input parameters.
-// Note! This creates a view to arguments and XSQLVARs
-//       are valid as long as args do not expire.
+/// Sets input parameters.
 template <class... Args>
 std::enable_if_t<(sizeof...(Args) > 0)>
 sqlda::set(const Args&... args)
@@ -225,8 +332,7 @@ sqlda::set(const Args&... args)
     ((it->set(args), ++it), ...);
 }
 
-
-// Allocate aligned space for incoming data
+/// Allocates aligned space for incoming data.
 void sqlda::alloc_data() noexcept
 {
     // Calculate data size and offsets
@@ -261,8 +367,7 @@ void sqlda::alloc_data() noexcept
     }
 }
 
-
-// Visit details
+/// Visit details
 template <class F, size_t... I>
 struct sqlda::visitor_impl<F, std::index_sequence<I...>>
 {
@@ -281,8 +386,7 @@ struct sqlda::visitor_impl<F, std::index_sequence<I...>>
     }
 };
 
-
-// Visit columns
+/// Visit columns.
 template <size_t MAX_FIELDS, class F>
 constexpr decltype(auto)
 sqlda::visit(F&& cb) const

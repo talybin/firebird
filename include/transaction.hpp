@@ -18,7 +18,7 @@ struct transaction
 
     /// Construct and attach database object.
     ///
-    /// @param[in] db - Reference to database object.
+    /// \param[in] db - Reference to database object.
     ///
     transaction(database& db) noexcept;
 
@@ -49,8 +49,8 @@ struct transaction
     /// returns data (that is, it must not be a SELECT or
     /// EXECUTE PROCEDURE statement, use fb::query for this).
     ///
-    /// @param[in] sql - SQL query to execute.
-    /// @param[in] params - Parameters to be set in SQL query (optional, if any).
+    /// \param[in] sql - SQL query to execute.
+    /// \param[in] params - Parameters to be set in SQL query (optional, if any).
     ///
     /// \throw fb::exception
     ///

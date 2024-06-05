@@ -1,17 +1,19 @@
 # vim: noexpandtab tabstop=4
 
 INC_DIR := ../include
-HDR_FILES := $(wildcard ${INC_DIR}/*.hpp)
+HDR_FILES := $(wildcard $(INC_DIR)/*.hpp)
+
+CPPFLAGS := -I$(INC_DIR)
+LIBS := -lfbclient
 
 SRCS := $(wildcard example_*.cpp)
-NAMES := $(SRCS:.cpp=)
+TARGETS := $(SRCS:.cpp=)
 
-all: ${NAMES}
-.PHONY: all
+all: $(TARGETS)
 
-example_%: example_%.cpp
-	$(CXX) -I${INC_DIR} $< -o $@ -lfbclient
+$(TARGETS): $(SRCS) $(HDR_FILES)
+	$(CXX) $(CPPFLAGS) $@.cpp -o $@ $(LIBS)
 
-clean:
-	$(RM) ${NAMES}
+clean::
+	$(RM) ${TARGETS}
 

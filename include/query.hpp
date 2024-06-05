@@ -6,6 +6,7 @@
 namespace fb
 {
 
+/// Executes SQL query and retrieves data.
 struct query
 {
     /// Rows iterator.
@@ -71,13 +72,6 @@ struct query
     /// possible to mix this two methods, see example. Use
     /// fb::skip to set only previously unset ones.
     ///
-    /// @param[in] args - Parameters to pass to this query
-    ///                   (optional). Number of arguments
-    ///                   must match required number or none.
-    ///
-    /// \return Reference to this query.
-    /// \throw fb::exception
-    ///
     /// \code{.cpp}
     ///     fb::query q(db, "select * from sales where a = ? and b = ?);
     ///     q.params()["a"] = 42;
@@ -86,6 +80,13 @@ struct query
     ///     q.params()["b"] = "open";
     ///     q.execute(); // using previously set "a" and "b"
     /// \endcode
+    ///
+    /// @param[in] args - Parameters to pass to this query
+    ///                   (optional). Number of arguments
+    ///                   must match required number or none.
+    ///
+    /// \return Reference to this query.
+    /// \throw fb::exception
     ///
     template <class... Args>
     query& execute(const Args&... args);
@@ -101,8 +102,6 @@ struct query
     /// Iterate result of SELECT query by calling callback for
     /// each row.
     ///
-    /// \throw fb::exception
-    ///
     /// \code{.cpp}
     ///     fb::query q(db, "select * from country");
     ///     q.execute().foreach([](auto country, auto currency)
@@ -114,6 +113,8 @@ struct query
     ///     });
     /// \endcode
     ///
+    /// \throw fb::exception
+    ///
     template <class F>
     void foreach(F&& cb) const
     {
@@ -123,8 +124,10 @@ struct query
     }
 
 private:
+    /// Query internal data
     struct context_t
     {
+        /// Construct query context.
         context_t(transaction& tr, std::string_view sql) noexcept
         : _trans(tr)
         , _sql(sql)
@@ -132,14 +135,23 @@ private:
         , _fields(5)
         { }
 
-        // Free query on destruct
-        ~context_t()
+        /// Free query on destruct.
+        ~context_t() noexcept
         { close(DSQL_drop); }
 
+        /// Release query handle.
+        ///
+        /// @param[in] op - Operation:
+        ///                 DSQL_close - Close and ready to execute again,
+        ///                 DSQL_drop - Release query (can't be used anymore).
+        ///
         void close(uint16_t op = DSQL_close) noexcept
         { invoke_noexcept(isc_dsql_free_statement, &_handle, op); }
 
-        // Fetch next row
+        /// Fetch next row.
+        ///
+        /// \return false if no more rows available.
+        ///
         bool fetch() noexcept
         {
             _is_data_available =
@@ -154,16 +166,16 @@ private:
         transaction _trans;
         std::string _sql;
 
+        /// Input parameters
         sqlda _params;
+        /// Output fields
         sqlda _fields;
     };
 
     std::shared_ptr<context_t> _context;
 };
 
-
-// query methods
-
+/// Row iterator
 struct query::iterator
 {
     using iterator_category = std::forward_iterator_tag;
@@ -171,6 +183,7 @@ struct query::iterator
     using pointer = value_type*;
     using reference = value_type&;
 
+    /// Construct empty (end) iterator.
     iterator() noexcept = default;
 
     iterator(query::context_t* ctx) noexcept
@@ -210,15 +223,15 @@ private:
     query::context_t* _ctx = nullptr;
 };
 
-
+/// Row begin iterator.
 query::iterator query::begin() const noexcept
 { return _context->_is_data_available ? _context.get() : end(); }
 
-
+/// Row end iterator.
 query::iterator query::end() const noexcept
 { return {}; }
 
-
+/// Access input parameters for reading and writing.
 sqlda& query::params(size_t hint_size)
 {
     context_t* c = _context.get();
@@ -242,8 +255,7 @@ sqlda& query::params(size_t hint_size)
     return c->_params;
 }
 
-
-// Prepare query and buffer for receiving data
+/// Prepare query and buffer for receiving data.
 void query::prepare()
 {
     context_t* c = _context.get();
@@ -274,8 +286,7 @@ void query::prepare()
     c->_is_prepared = true;
 }
 
-
-// Run query
+/// Execute query.
 template <class... Args>
 query& query::execute(const Args&... args)
 {
@@ -302,8 +313,7 @@ query& query::execute(const Args&... args)
     return *this;
 }
 
-
-// Get column names
+/// Get column names.
 std::vector<std::string_view> query::column_names() const noexcept
 {
     std::vector<std::string_view> view;

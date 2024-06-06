@@ -7,10 +7,10 @@ Header only C++ wrapper on Firebird database client C API. Require C++17.
 #include <iostream>
 
 int main() {
-    fb::database db("employee");
-    db.connect();
+    fb::database emp("employee");
+    emp.connect();
     // Using default transaction from fb::database
-    fb::query query(db, "select last_name from employee");
+    fb::query query(emp, "select last_name from employee");
     // There are many ways to read result from the query
     for (auto& row : query.execute()) {
         std::cout << row["LAST_NAME"].value_or("") << std::endl;
@@ -23,13 +23,13 @@ int main() {
 #include <iostream>
 
 int main() {
-    fb::database db("employee");
-    db.connect();
+    fb::database emp("employee");
+    emp.connect();
     // Database has a default transaction, but you can create a new one
-    fb::transaction trans(db);
+    fb::transaction trans(emp);
 
     try {
-        fb::query query(tr,
+        fb::query query(trans,
             "insert into project (proj_id, proj_name, proj_desc) "
             "values ('TEST', ?, ?)");
         // One way to set parameters is to send in execute() call
@@ -51,7 +51,32 @@ Documentation can be built with doxygen. Under Linux run
 make docs
 ```
 
-## Compile
+## Features
+* Creates a view on parameters and result from the query. No unnecessary copying and allocations.
+* Has expandable built-in type converter making it easy to read and write fields and parameters.
+* Has visitor pattern for received data.
+  ```cpp
+  query.foreach([](auto... fields) { });
+  ```
+* Methods to convert to and from `std::time_t` and `std::tm` for SQL timestamp.
+* Fully supporting BLOB type.
+* Possibility to create new database from the code.
+* Has support for `execute_immediate`.
+
+## Creating a single header
+You can grab single header from single directory. There also a script called `make_single.py`
+provided in the repository. To create single header locally, run:
+```sh
+make single
+```
+
+## Testing
+There are not many tests available, but look in `tests` directory. These can be compiled with:
+```sh
+make tests
+```
+
+## Adding library to your project
 ### Linux
 1. Install firebird dev package
 ```sh

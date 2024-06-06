@@ -90,6 +90,44 @@ TEST_CASE("testing scaled values")
 
 TEST_CASE("testing to_string")
 {
-    // TODO add tests here
+    using si = si_t<int16_t>;
+    char buf[16];
+
+    CHECK   (si(42, 0).to_string() == "42");
+    CHECK   (si(42, 3).to_string() == "42000");
+    CHECK   (si(42, -3).to_string() == "0.042");
+
+    // Zero check
+    CHECK   (si(0, 0).to_string() == "0");
+    CHECK   (si(0, 3).to_string() == "0");
+    CHECK   (si(0, -3).to_string() == "0");
+
+    // Negative values
+    CHECK   (si(-42, 0).to_string() == "-42");
+    CHECK   (si(-42, 3).to_string() == "-42000");
+    CHECK   (si(-42, -3).to_string() == "-0.042");
+
+    // Test buffer too small
+    CHECK_THROWS    (si(1, 3).to_string(buf, 2));
+    CHECK_NOTHROW   (si(1, 3).to_string(buf, 3));
+    // Negative values
+    CHECK_THROWS    (si(-1, 3).to_string(buf, 3));
+    CHECK_NOTHROW   (si(-1, 3).to_string(buf, 4));
+
+    // For zero it should be enough one digit only
+    CHECK_NOTHROW   (si(0, 0).to_string(buf, 1));
+    CHECK_NOTHROW   (si(0, 3).to_string(buf, 1));
+    CHECK_NOTHROW   (si(0, -3).to_string(buf, 1));
+
+    // Test zero buffer size
+    CHECK_THROWS    (si(0, 0).to_string(buf, 0));
+    CHECK_THROWS    (si(0, 3).to_string(buf, 0));
+    CHECK_THROWS    (si(0, -3).to_string(buf, 0));
+    CHECK_THROWS    (si(42, 0).to_string(buf, 0));
+    CHECK_THROWS    (si(42, 3).to_string(buf, 0));
+    CHECK_THROWS    (si(42, -3).to_string(buf, 0));
+    CHECK_THROWS    (si(-42, 0).to_string(buf, 0));
+    CHECK_THROWS    (si(-42, 3).to_string(buf, 0));
+    CHECK_THROWS    (si(-42, -3).to_string(buf, 0));
 }
 

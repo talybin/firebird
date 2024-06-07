@@ -121,11 +121,13 @@ TEST_CASE("testing to_string")
     CHECK_NOTHROW   (si(1, 3).to_string(buf, 4));
     CHECK_THROWS    (si(1, -3).to_string(buf, 4));
     CHECK_NOTHROW   (si(1, -3).to_string(buf, 5));
+    CHECK_THROWS    (si(12345, -3).to_string(buf, 4));
     // Negative values
     CHECK_THROWS    (si(-1, 3).to_string(buf, 4));
     CHECK_NOTHROW   (si(-1, 3).to_string(buf, 5));
     CHECK_THROWS    (si(-1, -3).to_string(buf, 5));
-    CHECK_NOTHROW   (si(-1, .3).to_string(buf, 6));
+    CHECK_NOTHROW   (si(-1, -3).to_string(buf, 6));
+    CHECK_THROWS    (si(-12345, -3).to_string(buf, 4));
 
     // For zero it should be enough one digit only
     CHECK_NOTHROW   (si(0, 0).to_string(buf, 1));

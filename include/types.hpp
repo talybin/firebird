@@ -185,20 +185,18 @@ std::string_view scaled_integer<T>::to_string(char* buf, size_t size) const
     }
 
     if (_scale < 0) {
-        // Check minimum required digits (all unsigned digits + dot)
-        check_range(end + _scale - 1);
-
         // Making value absolut or remainder will be negative
         T val = std::abs(_value);
         auto it = end;
 
         // Insert scaled digits
         for (auto x = _scale; x < 0; ++x, val /= 10)
-            *(--it) = (val % 10) + '0';
-        *(--it) = '.';
+            *check_range(--it) = (val % 10) + '0';
+        // Add dot
+        *check_range(--it) = '.';
         // Insert the rest
         for (; val; val /= 10)
-            *(--it) = (val % 10) + '0';
+            *check_range(--it) = (val % 10) + '0';
         // If last char is a dot, prepend '0'
         if (*it == '.')
             *check_range(--it) = '0';

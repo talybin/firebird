@@ -144,30 +144,7 @@ struct scaled_integer
     /// \return String view of the scaled integer.
     /// \throw fb::exception
     ///
-    std::string_view to_string(char* buf, size_t size) const
-    {
-        char* end = buf + size;
-        // Reserve space for scale operation
-        if (_scale < 0) --end; // dot
-        else if (_scale) end -= _scale; // number of zeroes
-
-        auto [it, ec] = std::to_chars(buf, end, _value);
-        if (ec == std::errc()) {
-            // No error
-            if (_scale < 0) {
-                // Shift scaled digits one step and insert dot
-                for (auto x = _scale; x < 0; ++x, --it)
-                    *it = it[-1];
-                *it = '.';
-                it += -_scale + 1;
-            }
-            // Add postfix zeroes if _scale > 0
-            for (auto x = 0; x < _scale; ++x, ++it)
-                *it = '0';
-            return { buf, size_t(it - buf) };
-        }
-        throw fb::exception(std::make_error_code(ec).message());
-    }
+    std::string_view to_string(char* buf, size_t size) const;
 
     /// Convert the scaled integer to a string.
     std::string to_string() const
@@ -187,6 +164,62 @@ private:
               << type_name<U>() << "\" type";
     }
 };
+
+// Convert the scaled integer to a string. Throws if
+// buffer is too small.
+template <class T>
+std::string_view scaled_integer<T>::to_string(char* buf, size_t size) const
+{
+    auto check_range = [&buf](char* end) {
+        if (end < buf)
+            throw fb::exception("too small buffer");
+        return end;
+    };
+    auto end = buf + size;
+
+    // Special case for zero value
+    if (_value == 0) {
+        check_range(end - 1);
+        *buf = '0';
+        return { buf, 1 };
+    }
+
+    if (_scale < 0) {
+        // Check minimum required digits (all unsigned digits + dot)
+        check_range(end + _scale - 1);
+
+        // Making value absolut or remainder will be negative
+        T val = std::abs(_value);
+        auto it = end;
+
+        // Insert scaled digits
+        for (auto x = _scale; x < 0; ++x, val /= 10)
+            *(--it) = (val % 10) + '0';
+        *(--it) = '.';
+        // Insert the rest
+        for (; val; val /= 10)
+            *(--it) = (val % 10) + '0';
+        // If last char is a dot, prepend '0'
+        if (*it == '.')
+            *check_range(--it) = '0';
+        // Finally add sign for negative value
+        if (_value < 0)
+            *check_range(--it) = '-';
+
+        return { it, size_t(end - it) };
+    }
+    else if (_scale)
+        end -= _scale; // number of zeroes
+
+    auto [it, ec] = std::to_chars(buf, end, _value);
+    if (ec == std::errc{}) {
+        // Add postfix zeroes if _scale > 0
+        for (auto x = 0; x < _scale; ++x, ++it)
+            *it = '0';
+        return { buf, size_t(it - buf) };
+    }
+    throw fb::exception(std::make_error_code(ec).message());
+}
 
 /// BLOB id type.
 using blob_id_t = ISC_QUAD;

@@ -21,7 +21,7 @@
 // SOFTWARE.
 
 // This file was generated with a script.
-// Generated 2024-06-07 14:20:10.530001+00:00 UTC
+// Generated 2024-06-07 20:16:37.847125+00:00 UTC
 #pragma once
 
 // beginning of include/firebird.hpp
@@ -393,6 +393,7 @@ using string_like = T;
 #include <charconv>
 #include <iomanip>
 #include <limits>
+#include <cmath>
 
 namespace fb
 {
@@ -508,8 +509,8 @@ struct scaled_integer
         }
     }
 
-    /// Convert the scaled integer to a string. Throws if
-    /// buffer is too small.
+    /// Convert the scaled integer to a null terminated string.
+    /// Throws if buffer is too small.
     ///
     /// \param[in] buf - Buffer to store the string.
     /// \param[in] size - Size of the buffer.
@@ -539,57 +540,36 @@ private:
 };
 
 template <class T>
-std::string_view scaled_integer<T>::to_string(char* buf, size_t size) const
+std::string_view scaled_integer<T>::to_string(char* buf, size_t buf_size) const
 {
-    auto check_range = [&buf](char* end) {
-        if (end < buf)
-            throw fb::exception("too small buffer");
-        return end;
-    };
-    auto end = buf + size;
+    int64_t val = _value;
+    int cnt = 0;
 
     // Special case for zero value
-    if (_value == 0) {
-        check_range(end - 1);
-        *buf = '0';
-        return { buf, 1 };
-    }
-
-    if (_scale < 0) {
-        // Check minimum required digits (all unsigned digits + dot)
-        check_range(end + _scale - 1);
-
+    if (val == 0)
+        cnt = std::snprintf(buf, buf_size, "0");
+    else if (_scale < 0) {
         // Making value absolut or remainder will be negative
-        T val = std::abs(_value);
-        auto it = end;
-
-        // Insert scaled digits
-        for (auto x = _scale; x < 0; ++x, val /= 10)
-            *(--it) = (val % 10) + '0';
-        *(--it) = '.';
-        // Insert the rest
-        for (; val; val /= 10)
-            *(--it) = (val % 10) + '0';
-        // If last char is a dot, prepend '0'
-        if (*it == '.')
-            *check_range(--it) = '0';
-        // Finally add sign for negative value
-        if (_value < 0)
-            *check_range(--it) = '-';
-
-        return { it, size_t(end - it) };
+        auto div = std::div(std::abs(val), std::pow(10, -_scale));
+        cnt = std::snprintf(buf, buf_size,
+            "%s%li.%0*li", val < 0 ? "-" : "", div.quot, -_scale, div.rem);
     }
     else if (_scale)
-        end -= _scale; // number of zeroes
+        cnt = std::snprintf(buf, buf_size, "%li%0*hi", val, _scale, 0);
+    else
+        cnt = std::snprintf(buf, buf_size, "%li", val);
 
-    auto [it, ec] = std::to_chars(buf, end, _value);
-    if (ec == std::errc{}) {
-        // Add postfix zeroes if _scale > 0
-        for (auto x = 0; x < _scale; ++x, ++it)
-            *it = '0';
-        return { buf, size_t(it - buf) };
-    }
-    throw fb::exception(std::make_error_code(ec).message());
+    // cnt is a number of characters that would have been written
+    // for a sufficiently large buffer if successful (not including
+    // the terminating null character), or a negative value if an
+    // error occurred. Thus, the (null-terminated) output has been
+    // completely written if and only if the returned value is
+    // nonnegative and less than buf_size.
+    if (cnt < 0)
+        throw fb::exception("could not convert to string");
+    if (cnt < buf_size)
+        return { buf, size_t(cnt) };
+    throw fb::exception("too small buffer");
 }
 
 using blob_id_t = ISC_QUAD;

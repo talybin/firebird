@@ -117,22 +117,22 @@ TEST_CASE("testing to_string")
     CHECK   (si(-42, -3).to_string() == "-0.042");
 
     // Test buffer too small
-    CHECK_THROWS    (si(1, 3).to_string(buf, 3));
-    CHECK_NOTHROW   (si(1, 3).to_string(buf, 4));
-    CHECK_THROWS    (si(1, -3).to_string(buf, 4));
-    CHECK_NOTHROW   (si(1, -3).to_string(buf, 5));
+    CHECK_THROWS    (si(1, 3).to_string(buf, 4));
+    CHECK_NOTHROW   (si(1, 3).to_string(buf, 5));
+    CHECK_THROWS    (si(1, -3).to_string(buf, 5));
+    CHECK_NOTHROW   (si(1, -3).to_string(buf, 6));
     CHECK_THROWS    (si(12345, -3).to_string(buf, 4));
     // Negative values
-    CHECK_THROWS    (si(-1, 3).to_string(buf, 4));
-    CHECK_NOTHROW   (si(-1, 3).to_string(buf, 5));
-    CHECK_THROWS    (si(-1, -3).to_string(buf, 5));
-    CHECK_NOTHROW   (si(-1, -3).to_string(buf, 6));
+    CHECK_THROWS    (si(-1, 3).to_string(buf, 5));
+    CHECK_NOTHROW   (si(-1, 3).to_string(buf, 6));
+    CHECK_THROWS    (si(-1, -3).to_string(buf, 6));
+    CHECK_NOTHROW   (si(-1, -3).to_string(buf, 7));
     CHECK_THROWS    (si(-12345, -3).to_string(buf, 4));
 
     // For zero it should be enough one digit only
-    CHECK_NOTHROW   (si(0, 0).to_string(buf, 1));
-    CHECK_NOTHROW   (si(0, 3).to_string(buf, 1));
-    CHECK_NOTHROW   (si(0, -3).to_string(buf, 1));
+    CHECK_NOTHROW   (si(0, 0).to_string(buf, 2));
+    CHECK_NOTHROW   (si(0, 3).to_string(buf, 2));
+    CHECK_NOTHROW   (si(0, -3).to_string(buf, 2));
 
     // Test zero buffer size
     CHECK_THROWS    (si(0, 0).to_string(buf, 0));

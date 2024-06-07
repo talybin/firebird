@@ -1,34 +1,27 @@
 #pragma once
-#include <vector>
+#include "traits.hpp"
 
 // Database methods
 
 namespace fb
 {
 
-/// Database Parameter Buffer (DPB).
-///
-/// \see https://docwiki.embarcadero.com/InterBase/2020/en/DPB_Parameters
-///
-struct database::params
+// Pack parameter into DPB structure
+void database::param::pack(std::vector<char>& dpb) const noexcept
 {
-    params()
-    { _dpb.reserve(256); }
-
-    // Name is isc_dpb_ constant
-    void add(int name) noexcept
-    { _dpb.push_back(name); }
-
-    // Add string parameter
-    void add(int name, std::string_view value) noexcept
-    {
-        add(name);
-        _dpb.push_back(value.size());
-        std::copy(value.begin(), value.end(), std::back_inserter(_dpb));
-    }
-
-    std::vector<char> _dpb;
-};
+    std::visit(overloaded {
+        [&](none_t) { dpb.push_back(_name); },
+        [&](std::string_view val) {
+            dpb.push_back(_name);
+            dpb.push_back(val.size());
+            std::copy(val.begin(), val.end(), std::back_inserter(dpb));
+        },
+        [&](int val) {
+            dpb.push_back(_name);
+            dpb.push_back(val);
+        },
+    }, _value);
+}
 
 /// Database internal data.
 struct database::context_t
@@ -41,7 +34,9 @@ struct database::context_t
     /// Construct database for connection.
     context_t(std::string_view path) noexcept
     : _path(path)
-    { }
+    {
+        _params.reserve(64);
+    }
 
     /// Disconnect here since it is shared context.
     ~context_t() noexcept
@@ -54,23 +49,25 @@ struct database::context_t
     void disconnect() noexcept
     { invoke_noexcept(isc_detach_database, &_handle); }
 
-    params _params;
+    /// Database Parameter Buffer (DPB).
+    std::vector<char> _params;
+    /// DSN path.
     std::string _path;
+    /// Native internal handle.
     isc_db_handle _handle = 0;
 };
 
-// Construct database for connection.
+// Construct database with connection parameters.
 database::database(
-    std::string_view path, std::string_view user, std::string_view passwd) noexcept
+    std::string_view path, std::initializer_list<param> params) noexcept
 : _context(std::make_shared<context_t>(path))
 {
+    // Setup default transaction but not use (start) it
     _trans = *this;
-
-    params& p = _context->_params;
-    // Fill database parameter buffer
-    p.add(isc_dpb_version1);
-    p.add(isc_dpb_user_name, user);
-    p.add(isc_dpb_password, passwd);
+    // Append parameters. Begin with a version.
+    param(isc_dpb_version1).pack(_context->_params);
+    for (auto& p : params)
+        p.pack(_context->_params);
 }
 
 // Construct database from handle.
@@ -84,7 +81,7 @@ database::database(isc_db_handle h) noexcept
 void database::connect()
 {
     context_t* c = _context.get();
-    auto& dpb = c->_params._dpb;
+    auto& dpb = c->_params;
 
     invoke_except(isc_attach_database,
         0, c->_path.c_str(), &c->_handle, dpb.size(), dpb.data());

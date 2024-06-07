@@ -74,8 +74,8 @@ def process_file(filename, out):
     with open(filename, 'r') as f:
         for line in f:
             # skip comments with indent 0, e.g. license
-            if line.startswith('//'):
-                continue
+            #if line.startswith('//'):
+            #    continue
 
             # skip include guard non-sense
             if is_include_guard(line):

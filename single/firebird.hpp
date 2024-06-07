@@ -21,12 +21,16 @@
 // SOFTWARE.
 
 // This file was generated with a script.
-// Generated 2024-06-07 20:16:37.847125+00:00 UTC
+// Generated 2024-06-07 23:41:26.494831+00:00 UTC
 #pragma once
 
 // beginning of include/firebird.hpp
 
+/// \file firebird.hpp
+
 // beginning of include/transaction.hpp
+
+/// \file transaction.hpp
 
 #include <ibase.h>
 #include <memory>
@@ -103,24 +107,84 @@ private:
 
 // beginning of include/database.hpp
 
+/// \file database.hpp
+
+#include <variant>
+#include <vector>
+
 namespace fb
 {
 
 struct database
 {
-    /// Database Parameter Buffer (DPB).
-    struct params;
+    /// Database connection parameter.
+    /// A set of these parameters build a Database Parameter Buffer (DPB)
+    /// that passed in connection request.
+    ///
+    /// \see https://docwiki.embarcadero.com/InterBase/2020/en/DPB_Parameters
+    ///
+    struct param
+    {
+        /// Type that do not hold any value.
+        struct none_t { };
 
-    /// Construct database for connection.
+        /// Union of parameter value types.
+        using value_type = std::variant<
+            none_t,
+            std::string_view,
+            int
+        >;
+
+        /// Construct parameter without value.
+        param(int name) noexcept
+        : _name(name)
+        , _value(none_t{})
+        { }
+
+        /// Construct parameter with a value
+        param(int name, value_type value) noexcept
+        : _name(name)
+        , _value(std::move(value))
+        { }
+
+        /// Pack parameter into DPB structure.
+        ///
+        /// \param[in] dpb - Vector to hold DPB data.
+        ///
+        void pack(std::vector<char>& dpb) const noexcept;
+
+    private:
+        /// Parameter name
+        int _name;
+        /// Parameter value (if any)
+        value_type _value;
+    };
+
+    /// Construct database with connection parameters.
     ///
     /// \param[in] path - DSN connection string.
-    /// \param[in] user - Username. Optional, default is "sysdba".
-    /// \param[in] passwd - Password. Optional, default is "masterkey".
+    /// \param[in] params - List of parameters.
+    ///
+    database(std::string_view path,
+        std::initializer_list<param> params) noexcept;
+
+    /// Construct database for connection with
+    /// username and password.
+    ///
+    /// \param[in] path - DSN connection string.
+    /// \param[in] user_name - User name, optional, default is "sysdba".
+    /// \param[in] passwd - Password, optional, default is "masterkey".
     ///
     database(
         std::string_view path,
-        std::string_view user = "sysdba",
-        std::string_view passwd = "masterkey") noexcept;
+        std::string_view user_name = "sysdba",
+        std::string_view passwd = "masterkey"
+    ) noexcept
+    : database(path, {
+        { isc_dpb_user_name, user_name },
+        { isc_dpb_password, passwd },
+    })
+    { }
 
     /// Connect to database using parameters provided in constructor.
     ///
@@ -206,12 +270,24 @@ private:
 
 // beginning of include/exception.hpp
 
+/// \file exception.hpp
+/// This file contains utility functions and structures
+/// for error handling in the library.
+
 #include <stdexcept>
 #include <sstream>
 
 namespace fb
 {
 
+/// Get error message from ISC_STATUS_ARRAY.
+/// This function interprets the status array and returns
+/// the corresponding error message as a string.
+///
+/// \param[in] status - Pointer to the ISC_STATUS array.
+///
+/// \return Error message as a string.
+///
 inline std::string to_string(const ISC_STATUS* status)
 {
     char buf[128];
@@ -219,6 +295,9 @@ inline std::string to_string(const ISC_STATUS* status)
     return buf;
 }
 
+/// Common exception for this library.
+/// This class extends std::exception to provide additional
+/// context and error handling for Firebird exceptions.
 struct exception : std::exception
 {
     /// Constructs exception without initial message.
@@ -273,6 +352,17 @@ private:
     std::string _err;
 };
 
+/// Run an API method and ignore status result (do not throw on error).
+///
+/// \code{.cpp}
+///     invoke_noexcept(isc_dsql_fetch, &_handle, SQL_DIALECT_V6, _fields);
+/// \endcode
+///
+/// \param[in] fn - Function to run.
+/// \param[in] args... - Function arguments except the first ISC_STATUS_ARRAY.
+///
+/// \return ISC_STATUS result of the function.
+///
 template <class F, class... Args>
 inline ISC_STATUS invoke_noexcept(F&& fn, Args&&... args) noexcept
 {
@@ -280,6 +370,18 @@ inline ISC_STATUS invoke_noexcept(F&& fn, Args&&... args) noexcept
     return fn(st, std::forward<Args>(args)...);
 }
 
+/// Run API method and throw exception on error.
+///
+/// \code{.cpp}
+///     invoke_except(isc_dsql_fetch, &_handle, SQL_DIALECT_V6, _fields);
+/// \endcode
+///
+/// \param[in] fn - Function to run.
+/// \param[in] args... - Function arguments except the first ISC_STATUS_ARRAY.
+///
+/// \return ISC_STATUS result of the function on success.
+/// \throw fb::exception
+///
 template <class F, class... Args>
 inline ISC_STATUS
 invoke_except(F&& fn, Args&&... args)
@@ -296,17 +398,41 @@ invoke_except(F&& fn, Args&&... args)
 
 // beginning of include/sqlda.hpp
 
+/// \file sqlda.hpp
+/// This file contains the definition of the sqlda structure used
+/// for transporting data in SQL statements.
+
 // beginning of include/sqlvar.hpp
+
+/// \file sqlvar.hpp
+/// This file contains the definition of the sqlvar structure for
+/// handling SQL variable data.
 
 // beginning of include/types.hpp
 
+/// \file types.hpp
+/// This file contains the definitions of various structures and types
+/// used for handling SQL data, timestamps, and type conversions.
+
 // beginning of include/traits.hpp
+
+/// \file traits.hpp
+/// This file contains utility templates and type traits for
+/// various purposes including type reflection and detection.
 
 #include <type_traits>
 
 namespace fb
 {
 
+/// Get the type name as a string.
+/// This function provides a way to get the name
+/// of a type as a string view.
+///
+/// \tparam T - The type to get the name of.
+///
+/// \return A string view representing the name of the type.
+///
 template <class T>
 inline constexpr std::string_view type_name() noexcept
 {
@@ -315,12 +441,20 @@ inline constexpr std::string_view type_name() noexcept
     return { sv.data(), sv.find(';') };
 }
 
+/// Combine multiple functors into one, useful for the visitor pattern.
+///
+/// \tparam Ts... - The types of the functors.
+///
+/// \see https://en.cppreference.com/w/cpp/utility/variant/visit
+///
 template <class... Ts>
 struct overloaded : Ts... { using Ts::operator()...; };
 
+/// Explicit deduction guide for overloaded (not needed as of C++20).
 template <class... Ts>
 overloaded(Ts...) -> overloaded<Ts...>;
 
+/// Template argument used to replace unknown types.
 struct any_type
 {
     /// Conversion operator to any type.
@@ -335,6 +469,11 @@ struct any_type
     constexpr operator T(); // non explicit
 };
 
+// Experimental traits from std TS
+// \see https://en.cppreference.com/w/cpp/experimental/is_detected
+
+/// \namespace detail
+/// Namespace for detail implementations of experimental traits.
 namespace detail
 {
     template<class Default, class AlwaysVoid, template<class...> class Op, class... Args>
@@ -353,34 +492,46 @@ namespace detail
 
 } // namespace detail
 
+/// Checks if given template can be instantiated with the provided arguments.
 template<template<class...> class Op, class... Args>
 using is_detected = typename detail::detector<any_type, void, Op, Args...>::value_t;
 
+/// Alias to get the type of detail::detector.
 template<template<class...> class Op, class... Args>
 using detected_t = typename detail::detector<any_type, void, Op, Args...>::type;
 
+/// Gets the detected type or a default type.
 template<class Default, template<class...> class Op, class... Args>
 using detected_or = detail::detector<Default, void, Op, Args...>;
 
+/// Checks if a type is a tuple. Returns false by default.
 template <class>
 struct is_tuple : std::false_type { };
 
+/// This specialization returns true for std::tuple types.
 template <class... Args>
 struct is_tuple<std::tuple<Args...>> : std::true_type { };
 
+/// Shorter alias for check if type is a tuple.
 template <class T>
 inline constexpr bool is_tuple_v = is_tuple<T>::value;
 
+/// Use the same type for any index (usable in iteration of an index sequence).
 template <size_t N, class T>
 using index_type = T;
 
+// Concepts
+
+/// This concept checks if a type can be statically cast to another type.
 template <class F, class T,
     class = std::void_t<decltype(static_cast<T>(std::declval<F>()))>>
 using static_castable = F;
 
+/// This concept checks if a type can be cast to a size_t.
 template <class F>
 using index_castable = static_castable<F, size_t>;
 
+/// Concept for types constructible by std::string_view.
 template <class T, class = std::enable_if_t<std::is_constructible_v<std::string_view, T>> >
 using string_like = T;
 
@@ -388,7 +539,6 @@ using string_like = T;
 
 // end of include/traits.hpp
 
-#include <variant>
 #include <ctime>
 #include <charconv>
 #include <iomanip>
@@ -398,6 +548,9 @@ using string_like = T;
 namespace fb
 {
 
+/// Implementation of ISC_TIMESTAMP structure.
+/// It provides various methods to convert between ISC_TIMESTAMP
+/// and 'time_t' or 'std::tm'.
 struct timestamp_t : ISC_TIMESTAMP
 {
     /// Convert timestamp_t to time_t.
@@ -457,6 +610,10 @@ struct timestamp_t : ISC_TIMESTAMP
     { return (timestamp_time / 10) % 1000; }
 };
 
+/// SQL integer type with scaling.
+///
+/// \tparam T - Underlying integer type.
+///
 template <class T>
 struct scaled_integer
 {
@@ -539,6 +696,7 @@ private:
     }
 };
 
+// Convert the scaled integer to a null terminated string
 template <class T>
 std::string_view scaled_integer<T>::to_string(char* buf, size_t buf_size) const
 {
@@ -572,8 +730,10 @@ std::string_view scaled_integer<T>::to_string(char* buf, size_t buf_size) const
     throw fb::exception("too small buffer");
 }
 
+/// BLOB id type.
 using blob_id_t = ISC_QUAD;
 
+/// Variant of SQL types.
 using field_t = std::variant<
     std::nullptr_t,
     std::string_view,
@@ -586,6 +746,11 @@ using field_t = std::variant<
     blob_id_t
 >;
 
+/// Expandable type converter. Capable to convert from
+/// a SQL type to any type defined here.
+///
+/// \tparam T - Requested (desination) type.
+///
 template <class T, class = void>
 struct type_converter
 {
@@ -594,6 +759,7 @@ struct type_converter
     { return val; }
 };
 
+/// Specialization for arithmetic (integral and floating-point) types.
 template <class T>
 struct type_converter<T, std::enable_if_t<std::is_arithmetic_v<T>> >
 {
@@ -628,6 +794,7 @@ struct type_converter<T, std::enable_if_t<std::is_arithmetic_v<T>> >
     }
 };
 
+/// Specialization for std::string type.
 template <>
 struct type_converter<std::string>
 {
@@ -653,6 +820,13 @@ struct type_converter<std::string>
     { return val.to_string(); }
 };
 
+/// Tag to skip parameter.
+///
+/// \code{.cpp}
+///     // Execute query with parameters, but send only second one (skip first)
+///     qry.execute(fb::skip, "second");
+/// \endcode
+///
 struct skip_t { };
 inline constexpr skip_t skip;
 
@@ -665,6 +839,10 @@ inline constexpr skip_t skip;
 namespace fb
 {
 
+/// This is a view of XSQLVAR. Be careful with expired values.
+///
+/// \see https://docwiki.embarcadero.com/InterBase/2020/en/XSQLVAR_Field_Descriptions
+///
 struct sqlvar
 {
     /// Alias for XSQLVAR type.
@@ -874,6 +1052,7 @@ private:
     }
 };
 
+// Gets the value as a variant (field_t).
 field_t sqlvar::as_variant() const
 {
     if (is_null())
@@ -950,11 +1129,14 @@ field_t sqlvar::as_variant() const
 // end of include/sqlvar.hpp
 
 #include <cassert>
-#include <vector>
 
 namespace fb
 {
 
+/// XSQLDA is a host-language data structure that DSQL uses to transport
+/// data to or from a database when processing a SQL statement string.
+///
+/// \see https://docwiki.embarcadero.com/InterBase/2020/en/XSQLDA_Field_Descriptions_(Embedded_SQL_Guide)
 struct sqlda
 {
     /// Column iterator.
@@ -1185,6 +1367,7 @@ private:
     }
 };
 
+/// Iterator for column traversing
 struct sqlda::iterator
 {
     /// Iterator value type.
@@ -1246,12 +1429,15 @@ private:
     value_type _var;
 };
 
+// Returns an iterator to the first column.
 sqlda::iterator sqlda::begin() const noexcept
 { return _ptr ? _ptr->sqlvar : nullptr; }
 
+// Returns an iterator to the end.
 sqlda::iterator sqlda::end() const noexcept
 { return _ptr ? &_ptr->sqlvar[std::min(size(), capacity())] : nullptr; }
 
+// Sets input parameters.
 template <class... Args>
 std::enable_if_t<(sizeof...(Args) > 0)>
 sqlda::set(const Args&... args)
@@ -1266,6 +1452,7 @@ sqlda::set(const Args&... args)
     ((it->set(args), ++it), ...);
 }
 
+// Allocates aligned space for incoming data.
 void sqlda::alloc_data() noexcept
 {
     // Calculate data size and offsets
@@ -1300,6 +1487,7 @@ void sqlda::alloc_data() noexcept
     }
 }
 
+// Visit details
 template <class F, size_t... I>
 struct sqlda::visitor_impl<F, std::index_sequence<I...>>
 {
@@ -1318,6 +1506,7 @@ struct sqlda::visitor_impl<F, std::index_sequence<I...>>
     }
 };
 
+// Visit columns.
 template <size_t MAX_FIELDS, class F>
 constexpr decltype(auto)
 sqlda::visit(F&& cb) const
@@ -1361,9 +1550,12 @@ sqlda::visit(F&& cb) const
 
 // end of include/sqlda.hpp
 
+// Transaction methods
+
 namespace fb
 {
 
+/// Transaction internal data.
 struct transaction::context_t
 {
     context_t(database& db) noexcept
@@ -1374,10 +1566,12 @@ struct transaction::context_t
     database _db;
 };
 
+// Construct and attach database object.
 transaction::transaction(database& db) noexcept
 : _context(std::make_shared<context_t>(db))
 { }
 
+// Start transaction (if not started yet).
 void transaction::start()
 {
     context_t* c = _context.get();
@@ -1385,18 +1579,23 @@ void transaction::start()
         invoke_except(isc_start_transaction, &c->_handle, 1, c->_db.handle(), 0, nullptr);
 }
 
+// Commit (apply) pending changes.
 void transaction::commit()
 { invoke_except(isc_commit_transaction, &_context->_handle); }
 
+// Rollback (cancel) pending changes.
 void transaction::rollback()
 { invoke_except(isc_rollback_transaction, &_context->_handle); }
 
+// Get internal pointer to isc_tr_handle.
 isc_tr_handle* transaction::handle() const noexcept
 { return &_context->_handle; }
 
+// Get database attached to this transaction.
 database& transaction::db() const noexcept
 { return _context->_db; }
 
+// Prepares the DSQL statement, executes it once, and discards it.
 template <class... Args>
 void transaction::execute_immediate(std::string_view sql, const Args&... args)
 {
@@ -1423,29 +1622,29 @@ void transaction::execute_immediate(std::string_view sql, const Args&... args)
 
 // beginning of include/database.tcc
 
+// Database methods
+
 namespace fb
 {
 
-struct database::params
+// Pack parameter into DPB structure
+void database::param::pack(std::vector<char>& dpb) const noexcept
 {
-    params()
-    { _dpb.reserve(256); }
+    std::visit(overloaded {
+        [&](none_t) { dpb.push_back(_name); },
+        [&](std::string_view val) {
+            dpb.push_back(_name);
+            dpb.push_back(val.size());
+            std::copy(val.begin(), val.end(), std::back_inserter(dpb));
+        },
+        [&](int val) {
+            dpb.push_back(_name);
+            dpb.push_back(val);
+        },
+    }, _value);
+}
 
-    // Name is isc_dpb_ constant
-    void add(int name) noexcept
-    { _dpb.push_back(name); }
-
-    // Add string parameter
-    void add(int name, std::string_view value) noexcept
-    {
-        add(name);
-        _dpb.push_back(value.size());
-        std::copy(value.begin(), value.end(), std::back_inserter(_dpb));
-    }
-
-    std::vector<char> _dpb;
-};
-
+/// Database internal data.
 struct database::context_t
 {
     /// Construct database from handle.
@@ -1456,7 +1655,9 @@ struct database::context_t
     /// Construct database for connection.
     context_t(std::string_view path) noexcept
     : _path(path)
-    { }
+    {
+        _params.reserve(64);
+    }
 
     /// Disconnect here since it is shared context.
     ~context_t() noexcept
@@ -1469,46 +1670,54 @@ struct database::context_t
     void disconnect() noexcept
     { invoke_noexcept(isc_detach_database, &_handle); }
 
-    params _params;
+    /// Database Parameter Buffer (DPB).
+    std::vector<char> _params;
+    /// DSN path.
     std::string _path;
+    /// Native internal handle.
     isc_db_handle _handle = 0;
 };
 
+// Construct database with connection parameters.
 database::database(
-    std::string_view path, std::string_view user, std::string_view passwd) noexcept
+    std::string_view path, std::initializer_list<param> params) noexcept
 : _context(std::make_shared<context_t>(path))
 {
+    // Setup default transaction but not use (start) it
     _trans = *this;
-
-    params& p = _context->_params;
-    // Fill database parameter buffer
-    p.add(isc_dpb_version1);
-    p.add(isc_dpb_user_name, user);
-    p.add(isc_dpb_password, passwd);
+    // Append parameters. Begin with a version.
+    param(isc_dpb_version1).pack(_context->_params);
+    for (auto& p : params)
+        p.pack(_context->_params);
 }
 
+// Construct database from handle.
 database::database(isc_db_handle h) noexcept
 : _context(std::make_shared<context_t>(h))
 {
     _trans = *this;
 }
 
+// Connect to database using parameters provided in constructor.
 void database::connect()
 {
     context_t* c = _context.get();
-    auto& dpb = c->_params._dpb;
+    auto& dpb = c->_params;
 
     invoke_except(isc_attach_database,
         0, c->_path.c_str(), &c->_handle, dpb.size(), dpb.data());
 }
 
+// Disconnect from database.
 void database::disconnect() noexcept
 { _context->disconnect(); }
 
+// Execute query once and discard it.
 template <class... Args>
 void database::execute_immediate(std::string_view sql, const Args&... params)
 { _trans.execute_immediate(sql, params...); }
 
+// Create new database.
 database database::create(std::string_view sql)
 {
     isc_db_handle db_handle = 0;
@@ -1525,15 +1734,19 @@ database database::create(std::string_view sql)
     return db_handle;
 }
 
+// Get native internal handle.
 isc_db_handle* database::handle() const noexcept
 { return &_context->_handle; }
 
+// Get default transaction.
 transaction& database::default_transaction() noexcept
 { return _trans; }
 
+// Commit default transaction.
 void database::commit()
 { _trans.commit(); }
 
+// Rollback default transaction.
 void database::rollback()
 { _trans.rollback(); }
 
@@ -1543,11 +1756,19 @@ void database::rollback()
 
 // beginning of include/query.hpp
 
+/// \file query.hpp
+
 // beginning of include/blob.hpp
+
+/// \file blob.hpp
+/// This file contains the definition of the blob structure for
+/// handling BLOB data in Firebird.
 
 namespace fb
 {
 
+/// This structure provides methods to create, read, and write BLOB data.
+/// \see https://docwiki.embarcadero.com/InterBase/2020/en/Blob_Functions
 struct blob
 {
     /// Create a blob for inserting (creates new blob id).
@@ -1679,6 +1900,7 @@ private:
     std::shared_ptr<context_t> _context;
 };
 
+// Read a chunk of data from the blob.
 uint16_t blob::read_chunk(char* buf, uint16_t buf_length) const
 {
     ISC_STATUS_ARRAY status;
@@ -1696,12 +1918,16 @@ uint16_t blob::read_chunk(char* buf, uint16_t buf_length) const
     throw fb::exception(status);
 }
 
+// Write a chunk of data to the blob.
 void blob::write_chunk(const char* buf, uint16_t buf_length)
 {
     invoke_except(isc_put_segment,
         &_context->_handle, buf_length, const_cast<char*>(buf));
 }
 
+/// Set blob from a string.
+/// Overload of blob::set() method.
+/// Create your own overload for type required.
 template <class T>
 blob& blob::set(string_like<T> value)
 {
@@ -1713,6 +1939,7 @@ blob& blob::set(string_like<T> value)
 
 } // namespace fb
 
+/// Write blob as string to a stream.
 inline std::ostream& operator<<(std::ostream& os, const fb::blob& b)
 {
     // Recommended size for segment is 80
@@ -1727,6 +1954,7 @@ inline std::ostream& operator<<(std::ostream& os, const fb::blob& b)
 namespace fb
 {
 
+/// Executes SQL query and retrieves data.
 struct query
 {
     /// Rows iterator.
@@ -1895,6 +2123,7 @@ private:
     std::shared_ptr<context_t> _context;
 };
 
+/// Row iterator
 struct query::iterator
 {
     using iterator_category = std::forward_iterator_tag;
@@ -1942,12 +2171,15 @@ private:
     query::context_t* _ctx = nullptr;
 };
 
+// Row begin iterator.
 query::iterator query::begin() const noexcept
 { return _context->_is_data_available ? _context.get() : end(); }
 
+// Row end iterator.
 query::iterator query::end() const noexcept
 { return {}; }
 
+// Access input parameters for reading and writing.
 sqlda& query::params(size_t hint_size)
 {
     context_t* c = _context.get();
@@ -1971,6 +2203,7 @@ sqlda& query::params(size_t hint_size)
     return c->_params;
 }
 
+// Prepare query and buffer for receiving data.
 void query::prepare()
 {
     context_t* c = _context.get();
@@ -2001,6 +2234,7 @@ void query::prepare()
     c->_is_prepared = true;
 }
 
+// Execute query.
 template <class... Args>
 query& query::execute(const Args&... args)
 {
@@ -2027,6 +2261,7 @@ query& query::execute(const Args&... args)
     return *this;
 }
 
+// Get column names.
 std::vector<std::string_view> query::column_names() const noexcept
 {
     std::vector<std::string_view> view;

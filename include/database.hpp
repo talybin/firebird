@@ -3,25 +3,82 @@
 #pragma once
 #include <memory>
 #include <string_view>
+#include <variant>
+#include <vector>
 
 namespace fb
 {
 
 struct database
 {
-    /// Database Parameter Buffer (DPB).
-    struct params;
+    /// Database connection parameter.
+    /// A set of these parameters build a Database Parameter Buffer (DPB)
+    /// that passed in connection request.
+    ///
+    /// \see https://docwiki.embarcadero.com/InterBase/2020/en/DPB_Parameters
+    ///
+    struct param
+    {
+        /// Type that do not hold any value.
+        struct none_t { };
 
-    /// Construct database for connection.
+        /// Union of parameter value types.
+        using value_type = std::variant<
+            none_t,
+            std::string_view,
+            int
+        >;
+
+        /// Construct parameter without value.
+        param(int name) noexcept
+        : _name(name)
+        , _value(none_t{})
+        { }
+
+        /// Construct parameter with a value
+        param(int name, value_type value) noexcept
+        : _name(name)
+        , _value(std::move(value))
+        { }
+
+        /// Pack parameter into DPB structure.
+        ///
+        /// \param[in] dpb - Vector to hold DPB data.
+        ///
+        void pack(std::vector<char>& dpb) const noexcept;
+
+    private:
+        /// Parameter name
+        int _name;
+        /// Parameter value (if any)
+        value_type _value;
+    };
+
+    /// Construct database with connection parameters.
     ///
     /// \param[in] path - DSN connection string.
-    /// \param[in] user - Username. Optional, default is "sysdba".
-    /// \param[in] passwd - Password. Optional, default is "masterkey".
+    /// \param[in] params - List of parameters.
+    ///
+    database(std::string_view path,
+        std::initializer_list<param> params) noexcept;
+
+    /// Construct database for connection with
+    /// username and password.
+    ///
+    /// \param[in] path - DSN connection string.
+    /// \param[in] user_name - User name, optional, default is "sysdba".
+    /// \param[in] passwd - Password, optional, default is "masterkey".
     ///
     database(
         std::string_view path,
-        std::string_view user = "sysdba",
-        std::string_view passwd = "masterkey") noexcept;
+        std::string_view user_name = "sysdba",
+        std::string_view passwd = "masterkey"
+    ) noexcept
+    : database(path, {
+        { isc_dpb_user_name, user_name },
+        { isc_dpb_password, passwd },
+    })
+    { }
 
     /// Connect to database using parameters provided in constructor.
     ///

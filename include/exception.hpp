@@ -51,7 +51,11 @@ struct exception : std::exception
     /// Constructs an exception from an ISC_STATUS array.
     exception(const ISC_STATUS* status)
     : _err(to_string(status))
+    #if 1
     { }
+    #else // TODO: Fix so we can see all messages
+    { isc_print_status(status); }
+    #endif
 
     /// Appends additional information to the error message.
     ///
@@ -85,7 +89,7 @@ private:
 /// Run an API method and ignore status result (do not throw on error).
 ///
 /// \code{.cpp}
-///     invoke_noexcept(isc_dsql_fetch, &_handle, SQL_DIALECT_V6, _fields);
+///     invoke_noexcept(isc_dsql_fetch, &_handle, SQL_DIALECT_CURRENT, _fields);
 /// \endcode
 ///
 /// \param[in] fn - Function to run.
@@ -103,7 +107,7 @@ inline ISC_STATUS invoke_noexcept(F&& fn, Args&&... args) noexcept
 /// Run API method and throw exception on error.
 ///
 /// \code{.cpp}
-///     invoke_except(isc_dsql_fetch, &_handle, SQL_DIALECT_V6, _fields);
+///     invoke_except(isc_dsql_fetch, &_handle, SQL_DIALECT_CURRENT, _fields);
 /// \endcode
 ///
 /// \param[in] fn - Function to run.

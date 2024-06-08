@@ -108,7 +108,7 @@ database database::create(std::string_view sql)
     // returns, db_handle is a valid handle, just as though you had made
     // a call to isc_attach_database()
     invoke_except(isc_dsql_execute_immediate,
-        &db_handle, &tr_handle, 0, sql.data(), SQL_DIALECT_V6, nullptr);
+        &db_handle, &tr_handle, 0, sql.data(), SQL_DIALECT_CURRENT, nullptr);
 
     return db_handle;
 }

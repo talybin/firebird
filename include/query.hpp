@@ -157,7 +157,7 @@ private:
         bool fetch() noexcept
         {
             _is_data_available =
-                invoke_noexcept(isc_dsql_fetch, &_handle, SQL_DIALECT_V6, _fields) == 0;
+                invoke_noexcept(isc_dsql_fetch, &_handle, SQL_DIALECT_CURRENT, _fields) == 0;
             // Note! The cursor must be closed before next execution
             return _is_data_available || (close(), false);
         }
@@ -247,11 +247,11 @@ sqlda& query::params(size_t hint_size)
         c->_params.reserve(std::max(hint_size, size_t(1)));
 
         // Prepare input parameters
-        invoke_except(isc_dsql_describe_bind, &c->_handle, SQL_DIALECT_V6, c->_params);
+        invoke_except(isc_dsql_describe_bind, &c->_handle, SQL_DIALECT_CURRENT, c->_params);
         if (c->_params.capacity() < c->_params.size()) {
             c->_params.reserve(c->_params.size());
             // Reread prepared description
-            invoke_except(isc_dsql_describe_bind, &c->_handle, SQL_DIALECT_V6, c->_params);
+            invoke_except(isc_dsql_describe_bind, &c->_handle, SQL_DIALECT_CURRENT, c->_params);
         }
     }
     return c->_params;
@@ -273,13 +273,13 @@ void query::prepare()
     invoke_except(isc_dsql_allocate_statement, c->_trans.db().handle(), &c->_handle);
     // Prepare query
     invoke_except(isc_dsql_prepare,
-        c->_trans.handle(), &c->_handle, 0, c->_sql.c_str(), SQL_DIALECT_V6, c->_fields);
+        c->_trans.handle(), &c->_handle, 0, c->_sql.c_str(), SQL_DIALECT_CURRENT, c->_fields);
 
     // Prepare output fields
     if (c->_fields.capacity() < c->_fields.size()) {
         c->_fields.reserve(c->_fields.size());
         // Reread prepared description
-        invoke_except(isc_dsql_describe, &c->_handle, SQL_DIALECT_V6, c->_fields);
+        invoke_except(isc_dsql_describe, &c->_handle, SQL_DIALECT_CURRENT, c->_fields);
     }
     // Allocate buffer for receiving data
     if (c->_fields.size())
@@ -302,9 +302,14 @@ query& query::execute(const Args&... args)
     if constexpr (sizeof...(Args) > 0)
         params(sizeof...(Args)).set(args...);
 
+    // Close cursor if opened. Cursor may be still open
+    // if there still data to read (from ex. SELECT).
+    // By closing cursor you discard receiving data.
+    c->close();
+
     // Execute
     invoke_except(isc_dsql_execute,
-        c->_trans.handle(), &c->_handle, SQL_DIALECT_V6, c->_params);
+        c->_trans.handle(), &c->_handle, SQL_DIALECT_CURRENT, c->_params);
 
     // If there data to be read we need to make sure
     // the first entry is present so iterators may

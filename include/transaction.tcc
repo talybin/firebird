@@ -65,7 +65,7 @@ void transaction::execute_immediate(std::string_view sql, const Args&... args)
 
     // Execute
     invoke_except(isc_dsql_execute_immediate, _context->_db.handle(),
-        &_context->_handle, 0, sql.data(), SQL_DIALECT_V6, params.get());
+        &_context->_handle, 0, sql.data(), SQL_DIALECT_CURRENT, params.get());
 }
 
 } // namespace fb

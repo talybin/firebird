@@ -21,7 +21,7 @@
 // SOFTWARE.
 
 // This file was generated with a script.
-// Generated 2024-06-08 00:10:45.503491+00:00 UTC
+// Generated 2024-06-08 14:48:06.814102+00:00 UTC
 #pragma once
 
 // beginning of include/firebird.hpp
@@ -319,7 +319,11 @@ struct exception : std::exception
     /// Constructs an exception from an ISC_STATUS array.
     exception(const ISC_STATUS* status)
     : _err(to_string(status))
+    #if 1
     { }
+    #else // TODO: Fix so we can see all messages
+    { isc_print_status(status); }
+    #endif
 
     /// Appends additional information to the error message.
     ///
@@ -353,7 +357,7 @@ private:
 /// Run an API method and ignore status result (do not throw on error).
 ///
 /// \code{.cpp}
-///     invoke_noexcept(isc_dsql_fetch, &_handle, SQL_DIALECT_V6, _fields);
+///     invoke_noexcept(isc_dsql_fetch, &_handle, SQL_DIALECT_CURRENT, _fields);
 /// \endcode
 ///
 /// \param[in] fn - Function to run.
@@ -371,7 +375,7 @@ inline ISC_STATUS invoke_noexcept(F&& fn, Args&&... args) noexcept
 /// Run API method and throw exception on error.
 ///
 /// \code{.cpp}
-///     invoke_except(isc_dsql_fetch, &_handle, SQL_DIALECT_V6, _fields);
+///     invoke_except(isc_dsql_fetch, &_handle, SQL_DIALECT_CURRENT, _fields);
 /// \endcode
 ///
 /// \param[in] fn - Function to run.
@@ -1611,7 +1615,7 @@ void transaction::execute_immediate(std::string_view sql, const Args&... args)
 
     // Execute
     invoke_except(isc_dsql_execute_immediate, _context->_db.handle(),
-        &_context->_handle, 0, sql.data(), SQL_DIALECT_V6, params.get());
+        &_context->_handle, 0, sql.data(), SQL_DIALECT_CURRENT, params.get());
 }
 
 } // namespace fb
@@ -1727,7 +1731,7 @@ database database::create(std::string_view sql)
     // returns, db_handle is a valid handle, just as though you had made
     // a call to isc_attach_database()
     invoke_except(isc_dsql_execute_immediate,
-        &db_handle, &tr_handle, 0, sql.data(), SQL_DIALECT_V6, nullptr);
+        &db_handle, &tr_handle, 0, sql.data(), SQL_DIALECT_CURRENT, nullptr);
 
     return db_handle;
 }
@@ -2101,7 +2105,7 @@ private:
         bool fetch() noexcept
         {
             _is_data_available =
-                invoke_noexcept(isc_dsql_fetch, &_handle, SQL_DIALECT_V6, _fields) == 0;
+                invoke_noexcept(isc_dsql_fetch, &_handle, SQL_DIALECT_CURRENT, _fields) == 0;
             // Note! The cursor must be closed before next execution
             return _is_data_available || (close(), false);
         }
@@ -2191,11 +2195,11 @@ sqlda& query::params(size_t hint_size)
         c->_params.reserve(std::max(hint_size, size_t(1)));
 
         // Prepare input parameters
-        invoke_except(isc_dsql_describe_bind, &c->_handle, SQL_DIALECT_V6, c->_params);
+        invoke_except(isc_dsql_describe_bind, &c->_handle, SQL_DIALECT_CURRENT, c->_params);
         if (c->_params.capacity() < c->_params.size()) {
             c->_params.reserve(c->_params.size());
             // Reread prepared description
-            invoke_except(isc_dsql_describe_bind, &c->_handle, SQL_DIALECT_V6, c->_params);
+            invoke_except(isc_dsql_describe_bind, &c->_handle, SQL_DIALECT_CURRENT, c->_params);
         }
     }
     return c->_params;
@@ -2217,13 +2221,13 @@ void query::prepare()
     invoke_except(isc_dsql_allocate_statement, c->_trans.db().handle(), &c->_handle);
     // Prepare query
     invoke_except(isc_dsql_prepare,
-        c->_trans.handle(), &c->_handle, 0, c->_sql.c_str(), SQL_DIALECT_V6, c->_fields);
+        c->_trans.handle(), &c->_handle, 0, c->_sql.c_str(), SQL_DIALECT_CURRENT, c->_fields);
 
     // Prepare output fields
     if (c->_fields.capacity() < c->_fields.size()) {
         c->_fields.reserve(c->_fields.size());
         // Reread prepared description
-        invoke_except(isc_dsql_describe, &c->_handle, SQL_DIALECT_V6, c->_fields);
+        invoke_except(isc_dsql_describe, &c->_handle, SQL_DIALECT_CURRENT, c->_fields);
     }
     // Allocate buffer for receiving data
     if (c->_fields.size())
@@ -2246,9 +2250,14 @@ query& query::execute(const Args&... args)
     if constexpr (sizeof...(Args) > 0)
         params(sizeof...(Args)).set(args...);
 
+    // Close cursor if opened. Cursor may be still open
+    // if there still data to read (from ex. SELECT).
+    // By closing cursor you discard receiving data.
+    c->close();
+
     // Execute
     invoke_except(isc_dsql_execute,
-        c->_trans.handle(), &c->_handle, SQL_DIALECT_V6, c->_params);
+        c->_trans.handle(), &c->_handle, SQL_DIALECT_CURRENT, c->_params);
 
     // If there data to be read we need to make sure
     // the first entry is present so iterators may

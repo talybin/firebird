@@ -34,12 +34,12 @@ void using_parameters(fb::database db)
     // will be used.
     // Use fb::skip as placeholder for parameters
     // that already set by params() method.
-    query.execute(fb::skip, "Eng");
+    query.execute(fb::skip, "Eng").close();
 
     // Run execute again, but this time set all
     // parameters before execute
     p[1] = "Eng";
-    query.execute();
+    query.execute().close();
 
     // Another way to set parameters is via set()
     query.params().set("180", "SRep");

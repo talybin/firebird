@@ -93,6 +93,12 @@ struct query
     template <class... Args>
     query& execute(const Args&... args);
 
+    /// Close read cursor. Closing need to be called only
+    /// if reading data (from ex. SELECT) need to be cancelled
+    /// and new execute invoked.
+    void close() noexcept
+    { _context->close(); }
+
     /// Row begin iterator.
     iterator begin() const noexcept;
     /// Row end iterator.
@@ -301,11 +307,6 @@ query& query::execute(const Args&... args)
     // Apply input parameters (if any)
     if constexpr (sizeof...(Args) > 0)
         params(sizeof...(Args)).set(args...);
-
-    // Close cursor if opened. Cursor may be still open
-    // if there still data to read (from ex. SELECT).
-    // By closing cursor you discard receiving data.
-    c->close();
 
     // Execute
     invoke_except(isc_dsql_execute,

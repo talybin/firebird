@@ -1,7 +1,7 @@
 # Firebird C++ Library
 Header only C++ wrapper on Firebird database client C API. Require C++17.
 
-## Sneak Peek
+## Use examples
 ```cpp
 #include <firebird.hpp>
 #include <iostream>
@@ -59,7 +59,7 @@ make docs
   query.foreach([](auto... fields) { });
   ```
 * Methods to convert to and from `std::time_t` and `std::tm` for SQL timestamp.
-* Fully supporting BLOB type.
+* Has support for BLOB type.
 * Possibility to create new database from the code.
 * Has support for `execute_immediate`.
 

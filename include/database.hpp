@@ -29,14 +29,12 @@ struct database
             int
         >;
 
-        /// Construct parameter without value.
-        param(int name) noexcept
-        : _name(name)
-        , _value(none_t{})
-        { }
-
-        /// Construct parameter with a value
-        param(int name, value_type value) noexcept
+        /// Construct parameter.
+        ///
+        /// \param[in] name - Parameter name.
+        /// \param[in] value - Parameter value. Optional, default is none.
+        ///
+        param(int name, value_type value = none_t{}) noexcept
         : _name(name)
         , _value(std::move(value))
         { }

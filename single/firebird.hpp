@@ -21,7 +21,7 @@
 // SOFTWARE.
 
 // This file was generated with a script.
-// Generated 2024-06-07 23:41:26.494831+00:00 UTC
+// Generated 2024-06-08 00:10:45.503491+00:00 UTC
 #pragma once
 
 // beginning of include/firebird.hpp
@@ -135,14 +135,12 @@ struct database
             int
         >;
 
-        /// Construct parameter without value.
-        param(int name) noexcept
-        : _name(name)
-        , _value(none_t{})
-        { }
-
-        /// Construct parameter with a value
-        param(int name, value_type value) noexcept
+        /// Construct parameter.
+        ///
+        /// \param[in] name - Parameter name.
+        /// \param[in] value - Parameter value. Optional, default is none.
+        ///
+        param(int name, value_type value = none_t{}) noexcept
         : _name(name)
         , _value(std::move(value))
         { }

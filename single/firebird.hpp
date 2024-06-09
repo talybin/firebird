@@ -21,7 +21,7 @@
 // SOFTWARE.
 
 // This file was generated with a script.
-// Generated 2024-06-08 17:22:58.179559+00:00 UTC
+// Generated 2024-06-09 23:16:54.628821+00:00 UTC
 #pragma once
 
 // beginning of include/firebird.hpp
@@ -494,17 +494,30 @@ namespace detail
 
 } // namespace detail
 
-/// Checks if given template can be instantiated with the provided arguments.
-template<template<class...> class Op, class... Args>
-using is_detected = typename detail::detector<any_type, void, Op, Args...>::value_t;
-
-/// Alias to get the type of detail::detector.
-template<template<class...> class Op, class... Args>
-using detected_t = typename detail::detector<any_type, void, Op, Args...>::type;
-
 /// Gets the detected type or a default type.
 template<class Default, template<class...> class Op, class... Args>
 using detected_or = detail::detector<Default, void, Op, Args...>;
+
+/// Alias to get the type of detected_or
+template< class Default, template<class...> class Op, class... Args >
+using detected_or_t = typename detected_or<Default, Op, Args...>::type;
+
+/// Find first type in Args which is NOT a type T.
+template <class T, class... Args>
+struct first_not {
+    // Not found, return T anyway
+    using type = T;
+};
+
+/// Alias to get type of first_not.
+template <class T, class... Args>
+using first_not_t = typename first_not<T, Args...>::type;
+
+/// Specialization of first_not to find type in Args which is NOT a type T.
+template <class T, class Arg0, class... Rest>
+struct first_not<T, Arg0, Rest...>
+: std::conditional<std::is_same_v<T, Arg0>, first_not_t<T, Rest...>, Arg0>
+{ };
 
 /// Checks if a type is a tuple. Returns false by default.
 template <class>
@@ -1493,7 +1506,8 @@ void sqlda::alloc_data() noexcept
 template <class F, size_t... I>
 struct sqlda::visitor_impl<F, std::index_sequence<I...>>
 {
-    using ret_type = detected_t<
+    using ret_type = detected_or_t<
+        any_type,
         std::invoke_result_t, F, index_type<I, sqlvar>...
     >;
 
@@ -1513,26 +1527,17 @@ template <size_t MAX_FIELDS, class F>
 constexpr decltype(auto)
 sqlda::visit(F&& cb) const
 {
-    // Default return type of detected traits
-    using not_found = any_type;
-
     return []<size_t... I>(
         size_t index, F&& f, sqlvar::pointer ptr, std::index_sequence<I...>)
         -> decltype(auto)
     {
         // Get the return type of given callback function
-        using detected_ret = detected_or<
-            not_found,
-            std::common_type_t, typename sqlda::visitor<F, I>::ret_type...
+        using R = first_not_t<
+            any_type, typename sqlda::visitor<F, I>::ret_type...
         >;
-        static_assert(typename detected_ret::value_t(),
-            "visit requires the visitor to have the same return type "
-            "for all number of arguments");
-
-        using R = typename detected_ret::type;
         static_assert(
             // Note, this does not detect variadic number of arguments
-            !std::is_same_v<R, not_found>,
+            !std::is_same_v<R, any_type>,
             "too many fields to visit, increase number of max_fields");
 
         // Build a virtual function table

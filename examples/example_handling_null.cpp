@@ -22,8 +22,7 @@ void handle_null(fb::database db)
         fb::sqlvar phone_ext = row[1];
 
         // Check before read, otherwise reading value will throw on null
-        if (phone_ext)
-        // ...or if (!phone_ext.is_null())
+        if (phone_ext) // ...or if (!phone_ext.is_null())
             std::cout << phone_ext.name() << " (value): "
                       << phone_ext.value<std::string_view>() << std::endl;
 
@@ -39,7 +38,7 @@ void handle_null(fb::database db)
 int main()
 {
     try {
-        fb::database emp("localhost/3053:employee");
+        fb::database emp("employee");
         emp.connect();
 
         handle_null(emp);

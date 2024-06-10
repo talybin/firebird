@@ -21,7 +21,7 @@
 // SOFTWARE.
 
 // This file was generated with a script.
-// Generated 2024-06-10 05:51:19.087772+00:00 UTC
+// Generated 2024-06-10 09:52:12.196869+00:00 UTC
 #pragma once
 
 // beginning of include/firebird.hpp

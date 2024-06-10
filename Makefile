@@ -11,7 +11,7 @@ TEST_DIR := tests
 EXAMPLE_DIR := examples
 
 
-all: $(TEST_DIR) $(EXAMPLE_DIR) single fbtest
+all: $(TEST_DIR) $(EXAMPLE_DIR) single
 .PHONY: all
 
 docs::
@@ -26,14 +26,8 @@ tests::
 examples::
 	cd $(EXAMPLE_DIR) && $(MAKE)
 
-fbtest: $(HDR_FILES) fbtest.cpp
-	$(CXX) $(CPPFLAGS) $@.cpp -o $@ $(LIBS)
-
-debug: $(HDR_FILES) fbtest.cpp
-	$(CXX) -ggdb $(CPPFLAGS) fbtest.cpp -o fbtest $(LIBS)
-
 clean:
-	$(RM) -r single fbtest a.out
+	$(RM) -r single a.out
 	cd $(TEST_DIR) && $(MAKE) clean
 	cd $(EXAMPLE_DIR) && $(MAKE) clean
 

@@ -83,23 +83,6 @@ using detected_or = detail::detector<Default, void, Op, Args...>;
 template< class Default, template<class...> class Op, class... Args >
 using detected_or_t = typename detected_or<Default, Op, Args...>::type;
 
-/// Find first type in Args which is NOT a type T.
-template <class T, class... Args>
-struct first_not {
-    // Not found, return T anyway
-    using type = T;
-};
-
-/// Alias to get type of first_not.
-template <class T, class... Args>
-using first_not_t = typename first_not<T, Args...>::type;
-
-/// Specialization of first_not to find type in Args which is NOT a type T.
-template <class T, class Arg0, class... Rest>
-struct first_not<T, Arg0, Rest...>
-: std::conditional<std::is_same_v<T, Arg0>, first_not_t<T, Rest...>, Arg0>
-{ };
-
 /// Checks if a type is a tuple. Returns false by default.
 template <class>
 struct is_tuple : std::false_type { };

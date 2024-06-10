@@ -372,6 +372,7 @@ void sqlda::alloc_data() noexcept
 template <class F, size_t... I>
 struct sqlda::visitor_impl<F, std::index_sequence<I...>>
 {
+    // Get return type of function if invokable, any_type otherwise
     using ret_type = detected_or_t<
         any_type,
         std::invoke_result_t, F, index_type<I, sqlvar>...
@@ -397,12 +398,20 @@ sqlda::visit(F&& cb) const
         size_t index, F&& f, sqlvar::pointer ptr, std::index_sequence<I...>)
         -> decltype(auto)
     {
-        // Get the return type of given callback function
-        using R = first_not_t<
-            any_type, typename sqlda::visitor<F, I>::ret_type...
+        // Get the return type of given callback function.
+        // Fallback (could not detect type) is any_type.
+        using detected_ret = detected_or<
+            any_type,
+            std::common_type_t, typename sqlda::visitor<F, I>::ret_type...
         >;
+        static_assert(typename detected_ret::value_t(),
+            "visit requires the visitor to have the same return type "
+            "for all number of arguments");
+
+        using R = typename detected_ret::type;
         static_assert(
             // Note, this does not detect variadic number of arguments
+            // (any number of arguments will return non-any_type).
             !std::is_same_v<R, any_type>,
             "too many fields to visit, increase number of max_fields");
 
